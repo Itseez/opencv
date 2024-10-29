@@ -2,6 +2,8 @@
 // It is subject to the license terms in the LICENSE file found in the top-level directory
 // of this distribution and at http://opencv.org/license.html
 
+#define ANNOYLIB_MULTITHREADED_BUILD
+
 #include "precomp.hpp"
 #include "../3rdparty/annoy/annoylib.h"
 #include <opencv2/core/utils/logger.hpp>
@@ -48,7 +50,7 @@ class ANNIndexImpl : public ANNIndex
 public:
     ANNIndexImpl(int dimension) : dim(dimension)
     {
-        index = makePtr<::cvannoy::AnnoyIndex<int, DataType, DistanceType, Random, ::cvannoy::AnnoyIndexSingleThreadedBuildPolicy>>(dimension);
+        index = makePtr<::cvannoy::AnnoyIndex<int, DataType, DistanceType, Random, ::cvannoy::AnnoyIndexMultiThreadedBuildPolicy>>(dimension);
     }
 
     void addItems(InputArray _dataset) CV_OVERRIDE
@@ -234,7 +236,7 @@ public:
 
 private:
     int dim;
-    Ptr<::cvannoy::AnnoyIndex<int, DataType, DistanceType, Random, ::cvannoy::AnnoyIndexSingleThreadedBuildPolicy>> index;
+    Ptr<::cvannoy::AnnoyIndex<int, DataType, DistanceType, Random, ::cvannoy::AnnoyIndexMultiThreadedBuildPolicy>> index;
 };
 
 Ptr<ANNIndex> ANNIndex::create(int dim, ANNIndex::Distance distType)
