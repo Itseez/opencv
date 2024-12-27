@@ -49,15 +49,12 @@
 namespace cv
 {
 
-static void calcMinEigenVal( const Mat& _cov, Mat& _dst )
+static void calcMinEigenVal( const Mat& _cov_x2, const Mat& _cov_xy, const Mat& _cov_y2, Mat& _dst )
 {
     int i, j;
-    Size size = _cov.size();
-#if CV_TRY_AVX
-    bool haveAvx = CV_CPU_HAS_SUPPORT_AVX;
-#endif
+    Size size = _cov_x2.size();
 
-    if( _cov.isContinuous() && _dst.isContinuous() )
+    if( _cov_x2.isContinuous() && _cov_xy.isContinuous() && _cov_y2.isContinuous() && _dst.isContinuous() )
     {
         size.width *= size.height;
         size.height = 1;
@@ -65,51 +62,21 @@ static void calcMinEigenVal( const Mat& _cov, Mat& _dst )
 
     for( i = 0; i < size.height; i++ )
     {
-        const float* cov = _cov.ptr<float>(i);
+        const float* cov_x2 = _cov_x2.ptr<float>(i);
+        const float* cov_xy = _cov_xy.ptr<float>(i);
+        const float* cov_y2 = _cov_y2.ptr<float>(i);
         float* dst = _dst.ptr<float>(i);
-#if CV_TRY_AVX
-        if( haveAvx )
-            j = calcMinEigenValLine_AVX(cov, dst, size.width);
-        else
-#endif // CV_TRY_AVX
-            j = 0;
-
-#if (CV_SIMD || CV_SIMD_SCALABLE)
-        {
-            v_float32 half = vx_setall_f32(0.5f);
-            for( ; j <= size.width - VTraits<v_float32>::vlanes(); j += VTraits<v_float32>::vlanes() )
-            {
-                v_float32 v_a, v_b, v_c, v_t;
-                v_load_deinterleave(cov + j*3, v_a, v_b, v_c);
-                v_a = v_mul(v_a, half);
-                v_c = v_mul(v_c, half);
-                v_t = v_sub(v_a, v_c);
-                v_t = v_muladd(v_b, v_b, (v_mul(v_t, v_t)));
-                v_store(dst + j, v_sub(v_add(v_a, v_c), v_sqrt(v_t)));
-            }
-        }
-#endif // CV_SIMD
-
-        for( ; j < size.width; j++ )
-        {
-            float a = cov[j*3]*0.5f;
-            float b = cov[j*3+1];
-            float c = cov[j*3+2]*0.5f;
-            dst[j] = (float)((a + c) - std::sqrt((a - c)*(a - c) + b*b));
-        }
+        j = 0;
+        calcMinEigenValLine(j, size.width, cov_x2, cov_xy, cov_y2, dst );
     }
 }
 
-
-static void calcHarris( const Mat& _cov, Mat& _dst, double k )
+static void calcHarris( const Mat& _cov_x2, const Mat& _cov_xy, const Mat& _cov_y2, Mat& _dst, double k )
 {
     int i, j;
-    Size size = _cov.size();
-#if CV_TRY_AVX
-    bool haveAvx = CV_CPU_HAS_SUPPORT_AVX;
-#endif
+    Size size = _cov_x2.size();
 
-    if( _cov.isContinuous() && _dst.isContinuous() )
+    if( _cov_x2.isContinuous() && _cov_xy.isContinuous() && _cov_y2.isContinuous() && _dst.isContinuous() )
     {
         size.width *= size.height;
         size.height = 1;
@@ -117,51 +84,22 @@ static void calcHarris( const Mat& _cov, Mat& _dst, double k )
 
     for( i = 0; i < size.height; i++ )
     {
-        const float* cov = _cov.ptr<float>(i);
+        const float* cov_x2 = _cov_x2.ptr<float>(i);
+        const float* cov_xy = _cov_xy.ptr<float>(i);
+        const float* cov_y2 = _cov_y2.ptr<float>(i);
         float* dst = _dst.ptr<float>(i);
-
-#if CV_TRY_AVX
-        if( haveAvx )
-            j = calcHarrisLine_AVX(cov, dst, k, size.width);
-        else
-#endif // CV_TRY_AVX
-            j = 0;
-
-#if (CV_SIMD || CV_SIMD_SCALABLE)
-        {
-            v_float32 v_k = vx_setall_f32((float)k);
-
-            for( ; j <= size.width - VTraits<v_float32>::vlanes(); j += VTraits<v_float32>::vlanes() )
-            {
-                v_float32 v_a, v_b, v_c;
-                v_load_deinterleave(cov + j * 3, v_a, v_b, v_c);
-
-                v_float32 v_ac_bb = v_sub(v_mul(v_a, v_c), v_mul(v_b, v_b));
-                v_float32 v_ac = v_add(v_a, v_c);
-                v_float32 v_dst = v_sub(v_ac_bb, v_mul(v_mul(v_k, v_ac), v_ac));
-                v_store(dst + j, v_dst);
-            }
-        }
-#endif // CV_SIMD128
-
-        for( ; j < size.width; j++ )
-        {
-            float a = cov[j*3];
-            float b = cov[j*3+1];
-            float c = cov[j*3+2];
-            dst[j] = (float)(a*c - b*b - k*(a + c)*(a + c));
-        }
+        j = 0;
+        calcHarrisLine(j, size.width, cov_x2, cov_xy, cov_y2, dst, k );
     }
 }
 
-
-static void eigen2x2( const float* cov, float* dst, int n )
+static void eigen2x2( const float* cov_x2, const float* cov_xy, const float* cov_y2, float* dst, int n )
 {
     for( int j = 0; j < n; j++ )
     {
-        double a = cov[j*3];
-        double b = cov[j*3+1];
-        double c = cov[j*3+2];
+        double a = cov_x2[j];
+        double b = cov_xy[j];
+        double c = cov_y2[j];
 
         double u = (a + c)*0.5;
         double v = std::sqrt((a - c)*(a - c)*0.25 + b*b);
@@ -212,10 +150,10 @@ static void eigen2x2( const float* cov, float* dst, int n )
     }
 }
 
-static void calcEigenValsVecs( const Mat& _cov, Mat& _dst )
+static void calcEigenValsVecs( const Mat& _cov_x2, const Mat& _cov_xy, const Mat& _cov_y2, Mat& _dst )
 {
-    Size size = _cov.size();
-    if( _cov.isContinuous() && _dst.isContinuous() )
+    Size size = _cov_x2.size();
+    if( _cov_x2.isContinuous() && _cov_xy.isContinuous() && _cov_y2.isContinuous() && _dst.isContinuous() )
     {
         size.width *= size.height;
         size.height = 1;
@@ -223,13 +161,14 @@ static void calcEigenValsVecs( const Mat& _cov, Mat& _dst )
 
     for( int i = 0; i < size.height; i++ )
     {
-        const float* cov = _cov.ptr<float>(i);
+        const float* cov_x2 = _cov_x2.ptr<float>(i);
+        const float* cov_xy = _cov_xy.ptr<float>(i);
+        const float* cov_y2 = _cov_y2.ptr<float>(i);
         float* dst = _dst.ptr<float>(i);
 
-        eigen2x2(cov, dst, size.width);
+        eigen2x2(cov_x2, cov_xy, cov_y2, dst, size.width);
     }
 }
-
 
 enum { MINEIGENVAL=0, HARRIS=1, EIGENVALSVECS=2 };
 
@@ -239,10 +178,6 @@ cornerEigenValsVecs( const Mat& src, Mat& eigenv, int block_size,
                      int aperture_size, int op_type, double k=0.,
                      int borderType=BORDER_DEFAULT )
 {
-#if CV_TRY_AVX
-    bool haveAvx = CV_CPU_HAS_SUPPORT_AVX;
-#endif
-
     int depth = src.depth();
     double scale = (double)(1 << ((aperture_size > 0 ? aperture_size : 3) - 1)) * block_size;
     if( aperture_size < 0 )
@@ -266,59 +201,35 @@ cornerEigenValsVecs( const Mat& src, Mat& eigenv, int block_size,
     }
 
     Size size = src.size();
-    Mat cov( size, CV_32FC3 );
+    Mat cov_x2( size, CV_32F );
+    Mat cov_xy( size, CV_32F );
+    Mat cov_y2( size, CV_32F );
     int i, j;
 
     for( i = 0; i < size.height; i++ )
     {
-        float* cov_data = cov.ptr<float>(i);
+        float* cov_data_x2 = cov_x2.ptr<float>(i);
+        float* cov_data_xy = cov_xy.ptr<float>(i);
+        float* cov_data_y2 = cov_y2.ptr<float>(i);
         const float* dxdata = Dx.ptr<float>(i);
         const float* dydata = Dy.ptr<float>(i);
-
-#if CV_TRY_AVX
-        if( haveAvx )
-            j = cornerEigenValsVecsLine_AVX(dxdata, dydata, cov_data, size.width);
-        else
-#endif // CV_TRY_AVX
-            j = 0;
-
-#if (CV_SIMD || CV_SIMD_SCALABLE)
-        {
-            for( ; j <= size.width - VTraits<v_float32>::vlanes(); j += VTraits<v_float32>::vlanes() )
-            {
-                v_float32 v_dx = vx_load(dxdata + j);
-                v_float32 v_dy = vx_load(dydata + j);
-
-                v_float32 v_dst0, v_dst1, v_dst2;
-                v_dst0 = v_mul(v_dx, v_dx);
-                v_dst1 = v_mul(v_dx, v_dy);
-                v_dst2 = v_mul(v_dy, v_dy);
-
-                v_store_interleave(cov_data + j * 3, v_dst0, v_dst1, v_dst2);
-            }
-        }
-#endif // CV_SIMD
-
-        for( ; j < size.width; j++ )
-        {
-            float dx = dxdata[j];
-            float dy = dydata[j];
-
-            cov_data[j*3] = dx*dx;
-            cov_data[j*3+1] = dx*dy;
-            cov_data[j*3+2] = dy*dy;
-        }
+        j = 0;
+        cornerEigenValsVecsLine(j, size.width, dxdata, dydata, cov_data_x2, cov_data_xy, cov_data_y2);
     }
 
-    boxFilter(cov, cov, cov.depth(), Size(block_size, block_size),
+    boxFilter(cov_x2, cov_x2, cov_x2.depth(), Size(block_size, block_size),
+        Point(-1,-1), false, borderType );
+    boxFilter(cov_xy, cov_xy, cov_xy.depth(), Size(block_size, block_size),
+        Point(-1,-1), false, borderType );
+    boxFilter(cov_y2, cov_y2, cov_y2.depth(), Size(block_size, block_size),
         Point(-1,-1), false, borderType );
 
     if( op_type == MINEIGENVAL )
-        calcMinEigenVal( cov, eigenv );
+        calcMinEigenVal( cov_x2, cov_xy, cov_y2, eigenv );
     else if( op_type == HARRIS )
-        calcHarris( cov, eigenv, k );
+        calcHarris( cov_x2, cov_xy, cov_y2, eigenv, k );
     else if( op_type == EIGENVALSVECS )
-        calcEigenValsVecs( cov, eigenv );
+        calcEigenValsVecs( cov_x2, cov_xy, cov_y2, eigenv );
 }
 
 #ifdef HAVE_OPENCL

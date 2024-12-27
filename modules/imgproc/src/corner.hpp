@@ -46,13 +46,9 @@
 
 namespace cv
 {
-
-#if CV_TRY_AVX
-    int calcMinEigenValLine_AVX(const float* cov, float* dst, int width);
-    int calcHarrisLine_AVX(const float* cov, float* dst, double k, int width);
-    int cornerEigenValsVecsLine_AVX(const float* dxdata, const float* dydata, float* cov_data, int width);
-#endif // CV_TRY_AVX
-
+    void calcMinEigenValLine(int& j, int width, const float* cov_x2, const float* cov_xy, const float* cov_y2, float* dst);
+    void calcHarrisLine(int& j, int width, const float* cov_x2, const float* cov_xy, const float* cov_y2, float* dst, double k);
+    void cornerEigenValsVecsLine(int& j, int width, const float* dxdata, const float* dydata, float* cov_x2, float* cov_xy, float* cov_y2);
 }
 
 #endif
