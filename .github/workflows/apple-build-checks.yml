@@ -1,0 +1,102 @@
+name: Apple CI
+
+on:
+  push:
+    branches:
+      - master
+      - next
+    tags:
+      - '**'
+  pull_request: # Run on every pull request, regardless of target branch
+
+env:
+  DEVELOPER_DIR: /Applications/Xcode_12.2.app/Contents/Developer
+
+jobs:
+  dynamic-xcframework:
+    runs-on: macos-11.0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: CMake Build Cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            build/xcframework
+            !build/xcframework/**/opencv2.framework
+            !build/xcframework/opencv2.xcframework
+            !build/xcframework/opencv2-*.xcframework.zip
+          key: ${{ runner.os }}-xcframework-${{ hashFiles('build/xcframework/**/**/version_string.tmp') }}
+          restore-keys: |
+            ${{ runner.os }}-xcframework-
+      - name: Swift Package Manager Cache
+        uses: actions/cache@v2
+        with:
+          path: .build
+          key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+      - name: Remove Stale Items from Cache
+        run: |
+          rm -r build/xcframework/opencv2-static.xcframework.zip || true
+          rm -r build/xcframework/opencv2-dynamic.xcframework.zip || true
+          rm -r build/xcframework/opencv2.xcframework || true
+      - name: Update CMake 3.19+
+        run: brew update && (brew upgrade cmake || true) # Need CMake 3.19 or higher https://gitlab.kitware.com/cmake/cmake/-/issues/21425
+      - name: Build Dynamic XCFramework
+        run: python3 platforms/apple/build_xcframework.py build/xcframework --dynamic
+      - name: Zip Dynamic XCFramework
+        run: cd build/xcframework/ && zip -r opencv2-dynamic.xcframework.zip opencv2.xcframework
+      # - name: Compute Swift Package binary checksum
+      #   run: swift package compute-checksum build/xcframework/opencv2-dynamic.xcframework.zip
+      - name: Upload Dynamic XCFramework
+        uses: actions/upload-artifact@v2
+        if: github.event.pull_request == null
+        with:
+          name: opencv2-dynamic.xcframework.zip
+          path: |
+            build/xcframework/opencv2-dynamic.xcframework.zip
+
+  static-xcframework:
+    runs-on: macos-11.0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: CMake Build Cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            build/xcframework
+            !build/xcframework/**/opencv2.framework
+            !build/xcframework/opencv2.xcframework
+            !build/xcframework/opencv2-*.xcframework.zip
+          key: ${{ runner.os }}-xcframework-${{ hashFiles('build/xcframework/**/**/version_string.tmp') }}
+          restore-keys: |
+            ${{ runner.os }}-xcframework-
+      - name: Swift Package Manager Cache
+        uses: actions/cache@v2
+        with:
+          path: .build
+          key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+      - name: Remove Stale Items from Cache
+        run: |
+          rm -r build/xcframework/opencv2-static.xcframework.zip || true
+          rm -r build/xcframework/opencv2-dynamic.xcframework.zip || true
+          rm -r build/xcframework/opencv2.xcframework || true
+      - name: Update CMake 3.19+
+        run: brew update && (brew upgrade cmake || true) # Need CMake 3.19 or higher https://gitlab.kitware.com/cmake/cmake/-/issues/21425
+      - name: Build Static XCFramework
+        run: python3 platforms/apple/build_xcframework.py build/xcframework
+      - name: Zip Static XCFramework
+        run: cd build/xcframework/ && zip -r opencv2-static.xcframework.zip opencv2.xcframework
+      # - name: Compute Swift Package binary checksum
+      #   run: swift package compute-checksum build/xcframework/opencv2-static.xcframework.zip
+      - name: Upload Static XCFramework
+        uses: actions/upload-artifact@v2
+        if: github.event.pull_request == null
+        with:
+          name: opencv2-static.xcframework.zip
+          path: |
+            build/xcframework/opencv2-static.xcframework.zip
