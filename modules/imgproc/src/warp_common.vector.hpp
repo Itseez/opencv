@@ -1317,7 +1317,180 @@
     CV_WARP_SIMD256_##INTER##_SHUFFLE_INTER_##DEPTH##C3_I(12, 13) \
     CV_WARP_SIMD256_##INTER##_SHUFFLE_INTER_##DEPTH##C3_I(14, 15) \
     CV_WARP_SIMD256_##INTER##_STORE_##DEPTH##C3_I()
-
+// SIMD_SCALABLE (SIMDX), c3, nearest
+#define CV_WARP_SIMDX_NEAREST_SHUFFLE_INTER_8UC3_I(ofs) \
+    const uint8_t *srcptr##ofs = src + addr[ofs]; \
+    v_uint32 i##ofs##_pix0 = v_load_expand_q<4>(srcptr##ofs);
+#define CV_WARP_SIMDX_NEAREST_SHUFFLE_INTER_16UC3_I(ofs) \
+    const uint16_t *srcptr##ofs = src + addr[ofs]; \
+    v_uint32 i##ofs##_pix0 = v_load_expand<4>(srcptr##ofs);
+#define CV_WARP_SIMDX_NEAREST_SHUFFLE_INTER_32FC3_I(ofs) \
+    const float *srcptr##ofs = src + addr[ofs]; \
+    v_float32 i##ofs##_fpix0 = v_load<4>(srcptr##ofs);
+#define CV_WARP_SIMDX_NEAREST_STORE_8UC3_I() \
+    uint32_t tmp_buf[max_vlanes_16*4]; \
+    v_store<4>(tmp_buf,       i0_pix0); \
+    v_store<4>(tmp_buf + 3,   i1_pix0); \
+    v_store<4>(tmp_buf + 3*2, i2_pix0); \
+    v_store<4>(tmp_buf + 3*3, i3_pix0); \
+    v_store<4>(tmp_buf + 3*4, i4_pix0); \
+    v_store<4>(tmp_buf + 3*5, i5_pix0); \
+    v_store<4>(tmp_buf + 3*6, i6_pix0); \
+    v_store<4>(tmp_buf + 3*7, i7_pix0); \
+    v_uint16 pix0 = v_pack(v_load<4>(tmp_buf),             v_load<4>(tmp_buf+vlanes_32)); \
+    v_uint16 pix1 = v_pack(v_load<4>(tmp_buf+vlanes_32*2), v_load<4>(tmp_buf+vlanes_32*3)); \
+    v_uint16 pix2 = v_pack(v_load<4>(tmp_buf+vlanes_32*4), v_load<4>(tmp_buf+vlanes_32*5)); \
+    v_pack_store<8>(dstptr + 3*x,             pix0); \
+    v_pack_store<8>(dstptr + 3*x+vlanes_16,   pix1); \
+    v_pack_store<8>(dstptr + 3*x+vlanes_16*2, pix2);
+#define CV_WARP_SIMDX_NEAREST_STORE_16UC3_I() \
+    uint32_t tmp_buf[max_vlanes_16*4]; \
+    v_store<4>(tmp_buf,       i0_pix0); \
+    v_store<4>(tmp_buf + 3,   i1_pix0); \
+    v_store<4>(tmp_buf + 3*2, i2_pix0); \
+    v_store<4>(tmp_buf + 3*3, i3_pix0); \
+    v_store<4>(tmp_buf + 3*4, i4_pix0); \
+    v_store<4>(tmp_buf + 3*5, i5_pix0); \
+    v_store<4>(tmp_buf + 3*6, i6_pix0); \
+    v_store<4>(tmp_buf + 3*7, i7_pix0); \
+    v_uint16 pix0 = v_pack(v_load<4>(tmp_buf),             v_load<4>(tmp_buf+vlanes_32)); \
+    v_uint16 pix1 = v_pack(v_load<4>(tmp_buf+vlanes_32*2), v_load<4>(tmp_buf+vlanes_32*3)); \
+    v_uint16 pix2 = v_pack(v_load<4>(tmp_buf+vlanes_32*4), v_load<4>(tmp_buf+vlanes_32*5)); \
+    v_store<8>(dstptr + 3*x,             pix0); \
+    v_store<8>(dstptr + 3*x+vlanes_16,   pix1); \
+    v_store<8>(dstptr + 3*x+vlanes_16*2, pix2);
+#define CV_WARP_SIMDX_NEAREST_STORE_32FC3_I() \
+    if (rightmost) { \
+        float tmp_buf[max_vlanes_32*4]; \
+        v_store<4>(tmp_buf,       i0_fpix0); \
+        v_store<4>(tmp_buf + 3,   i1_fpix0); \
+        v_store<4>(tmp_buf + 3*2, i2_fpix0); \
+        v_store<4>(tmp_buf + 3*3, i3_fpix0); \
+        v_store<4>(dstptr + 3*x,             v_load<4>(tmp_buf)); \
+        v_store<4>(dstptr + 3*x+vlanes_32,   v_load<4>(tmp_buf + vlanes_32)); \
+        v_store<4>(dstptr + 3*x+vlanes_32*2, v_load<4>(tmp_buf + vlanes_32*2)); \
+        v_store<4>(tmp_buf,       i4_fpix0); \
+        v_store<4>(tmp_buf + 3,   i5_fpix0); \
+        v_store<4>(tmp_buf + 3*2, i6_fpix0); \
+        v_store<4>(tmp_buf + 3*3, i7_fpix0); \
+        v_store<4>(dstptr + 3*x+vlanes_32*3, v_load<4>(tmp_buf)); \
+        v_store<4>(dstptr + 3*x+vlanes_32*4, v_load<4>(tmp_buf + vlanes_32)); \
+        v_store<4>(dstptr + 3*x+vlanes_32*5, v_load<4>(tmp_buf + vlanes_32*2)); \
+    } else { \
+        v_store<4>(dstptr + 3*(x),   i0_fpix0); \
+        v_store<4>(dstptr + 3*(x+1), i1_fpix0); \
+        v_store<4>(dstptr + 3*(x+2), i2_fpix0); \
+        v_store<4>(dstptr + 3*(x+3), i3_fpix0); \
+        v_store<4>(dstptr + 3*(x+4), i4_fpix0); \
+        v_store<4>(dstptr + 3*(x+5), i5_fpix0); \
+        v_store<4>(dstptr + 3*(x+6), i6_fpix0); \
+        v_store<4>(dstptr + 3*(x+7), i7_fpix0); \
+    }
+// SIMD_SCALABLE (SIMDX), c3, bilinear
+#define CV_WARP_SIMDX_LINEAR_SHUFFLE_INTER_8UC3_I(ofs) \
+    const uint8_t *srcptr##ofs = src + addr[ofs]; \
+    v_float32 i##ofs##_fpix0 = v_cvt_f32(v_reinterpret_as_s32(v_load_expand_q<4>(srcptr##ofs))), \
+              i##ofs##_fpix1 = v_cvt_f32(v_reinterpret_as_s32(v_load_expand_q<4>(srcptr##ofs+3))), \
+              i##ofs##_fpix2 = v_cvt_f32(v_reinterpret_as_s32(v_load_expand_q<4>(srcptr##ofs+srcstep))), \
+              i##ofs##_fpix3 = v_cvt_f32(v_reinterpret_as_s32(v_load_expand_q<4>(srcptr##ofs+srcstep+3))); \
+    v_float32 i##ofs##_alpha = vx_setall_f32(valpha[ofs]), \
+              i##ofs##_beta  = vx_setall_f32(vbeta[ofs]); \
+    i##ofs##_fpix0 = v_fma(i##ofs##_alpha, v_sub(i##ofs##_fpix1, i##ofs##_fpix0), i##ofs##_fpix0); \
+    i##ofs##_fpix2 = v_fma(i##ofs##_alpha, v_sub(i##ofs##_fpix3, i##ofs##_fpix2), i##ofs##_fpix2); \
+    i##ofs##_fpix0 = v_fma(i##ofs##_beta,  v_sub(i##ofs##_fpix2, i##ofs##_fpix0), i##ofs##_fpix0); \
+    auto i##ofs##_pix0 = v_round(i##ofs##_fpix0);
+#define CV_WARP_SIMDX_LINEAR_SHUFFLE_INTER_16UC3_I(ofs) \
+    const uint16_t *srcptr##ofs = src + addr[ofs]; \
+    v_float32 i##ofs##_fpix0 = v_cvt_f32(v_reinterpret_as_s32(v_load_expand<4>(srcptr##ofs))), \
+              i##ofs##_fpix1 = v_cvt_f32(v_reinterpret_as_s32(v_load_expand<4>(srcptr##ofs+3))), \
+              i##ofs##_fpix2 = v_cvt_f32(v_reinterpret_as_s32(v_load_expand<4>(srcptr##ofs+srcstep))), \
+              i##ofs##_fpix3 = v_cvt_f32(v_reinterpret_as_s32(v_load_expand<4>(srcptr##ofs+srcstep+3))); \
+    v_float32 i##ofs##_alpha = vx_setall_f32(valpha[ofs]), \
+              i##ofs##_beta  = vx_setall_f32(vbeta[ofs]); \
+    i##ofs##_fpix0 = v_fma(i##ofs##_alpha, v_sub(i##ofs##_fpix1, i##ofs##_fpix0), i##ofs##_fpix0); \
+    i##ofs##_fpix2 = v_fma(i##ofs##_alpha, v_sub(i##ofs##_fpix3, i##ofs##_fpix2), i##ofs##_fpix2); \
+    i##ofs##_fpix0 = v_fma(i##ofs##_beta,  v_sub(i##ofs##_fpix2, i##ofs##_fpix0), i##ofs##_fpix0); \
+    auto i##ofs##_pix0 = v_round(i##ofs##_fpix0);
+#define CV_WARP_SIMDX_LINEAR_SHUFFLE_INTER_32FC3_I(ofs) \
+    const float *srcptr##ofs = src + addr[ofs]; \
+    v_float32 i##ofs##_fpix0 = v_load<4>(srcptr##ofs), \
+              i##ofs##_fpix1 = v_load<4>(srcptr##ofs+3), \
+              i##ofs##_fpix2 = v_load<4>(srcptr##ofs+srcstep), \
+              i##ofs##_fpix3 = v_load<4>(srcptr##ofs+srcstep+3); \
+    v_float32 i##ofs##_alpha = vx_setall_f32(valpha[ofs]), \
+              i##ofs##_beta  = vx_setall_f32(vbeta[ofs]); \
+    i##ofs##_fpix0 = v_fma(i##ofs##_alpha, v_sub(i##ofs##_fpix1, i##ofs##_fpix0), i##ofs##_fpix0); \
+    i##ofs##_fpix2 = v_fma(i##ofs##_alpha, v_sub(i##ofs##_fpix3, i##ofs##_fpix2), i##ofs##_fpix2); \
+    i##ofs##_fpix0 = v_fma(i##ofs##_beta,  v_sub(i##ofs##_fpix2, i##ofs##_fpix0), i##ofs##_fpix0);
+#define CV_WARP_SIMDX_LINEAR_STORE_8UC3_I() \
+    int32_t tmp_buf[max_vlanes_16*4]; \
+    v_store<4>(tmp_buf,       i0_pix0); \
+    v_store<4>(tmp_buf + 3,   i1_pix0); \
+    v_store<4>(tmp_buf + 3*2, i2_pix0); \
+    v_store<4>(tmp_buf + 3*3, i3_pix0); \
+    v_store<4>(tmp_buf + 3*4, i4_pix0); \
+    v_store<4>(tmp_buf + 3*5, i5_pix0); \
+    v_store<4>(tmp_buf + 3*6, i6_pix0); \
+    v_store<4>(tmp_buf + 3*7, i7_pix0); \
+    v_uint16 pix0 = v_pack_u(v_load<4>(tmp_buf),             v_load<4>(tmp_buf+vlanes_32)); \
+    v_uint16 pix1 = v_pack_u(v_load<4>(tmp_buf+vlanes_32*2), v_load<4>(tmp_buf+vlanes_32*3)); \
+    v_uint16 pix2 = v_pack_u(v_load<4>(tmp_buf+vlanes_32*4), v_load<4>(tmp_buf+vlanes_32*5)); \
+    v_pack_store<8>(dstptr + 3*x,             pix0); \
+    v_pack_store<8>(dstptr + 3*x+vlanes_16,   pix1); \
+    v_pack_store<8>(dstptr + 3*x+vlanes_16*2, pix2);
+#define CV_WARP_SIMDX_LINEAR_STORE_16UC3_I() \
+    int32_t tmp_buf[max_vlanes_16*4]; \
+    v_store<4>(tmp_buf,       i0_pix0); \
+    v_store<4>(tmp_buf + 3,   i1_pix0); \
+    v_store<4>(tmp_buf + 3*2, i2_pix0); \
+    v_store<4>(tmp_buf + 3*3, i3_pix0); \
+    v_store<4>(tmp_buf + 3*4, i4_pix0); \
+    v_store<4>(tmp_buf + 3*5, i5_pix0); \
+    v_store<4>(tmp_buf + 3*6, i6_pix0); \
+    v_store<4>(tmp_buf + 3*7, i7_pix0); \
+    v_uint16 pix0 = v_pack_u(v_load<4>(tmp_buf),             v_load<4>(tmp_buf+vlanes_32)); \
+    v_uint16 pix1 = v_pack_u(v_load<4>(tmp_buf+vlanes_32*2), v_load<4>(tmp_buf+vlanes_32*3)); \
+    v_uint16 pix2 = v_pack_u(v_load<4>(tmp_buf+vlanes_32*4), v_load<4>(tmp_buf+vlanes_32*5)); \
+    v_store<8>(dstptr + 3*x,             pix0); \
+    v_store<8>(dstptr + 3*x+vlanes_16,   pix1); \
+    v_store<8>(dstptr + 3*x+vlanes_16*2, pix2);
+#define CV_WARP_SIMDX_LINEAR_STORE_32FC3_I() \
+    if (rightmost) { \
+        float tmp_buf[max_vlanes_32*4]; \
+        v_store<4>(tmp_buf,       i0_fpix0); \
+        v_store<4>(tmp_buf + 3,   i1_fpix0); \
+        v_store<4>(tmp_buf + 3*2, i2_fpix0); \
+        v_store<4>(tmp_buf + 3*3, i3_fpix0); \
+        v_store<4>(dstptr + 3*x,             v_load<4>(tmp_buf)); \
+        v_store<4>(dstptr + 3*x+vlanes_32,   v_load<4>(tmp_buf + vlanes_32)); \
+        v_store<4>(dstptr + 3*x+vlanes_32*2, v_load<4>(tmp_buf + vlanes_32*2)); \
+        v_store<4>(tmp_buf,       i4_fpix0); \
+        v_store<4>(tmp_buf + 3,   i5_fpix0); \
+        v_store<4>(tmp_buf + 3*2, i6_fpix0); \
+        v_store<4>(tmp_buf + 3*3, i7_fpix0); \
+        v_store<4>(dstptr + 3*x+vlanes_32*3, v_load<4>(tmp_buf)); \
+        v_store<4>(dstptr + 3*x+vlanes_32*4, v_load<4>(tmp_buf + vlanes_32)); \
+        v_store<4>(dstptr + 3*x+vlanes_32*5, v_load<4>(tmp_buf + vlanes_32*2)); \
+    } else { \
+        v_store<4>(dstptr + 3*(x),   i0_fpix0); \
+        v_store<4>(dstptr + 3*(x+1), i1_fpix0); \
+        v_store<4>(dstptr + 3*(x+2), i2_fpix0); \
+        v_store<4>(dstptr + 3*(x+3), i3_fpix0); \
+        v_store<4>(dstptr + 3*(x+4), i4_fpix0); \
+        v_store<4>(dstptr + 3*(x+5), i5_fpix0); \
+        v_store<4>(dstptr + 3*(x+6), i6_fpix0); \
+        v_store<4>(dstptr + 3*(x+7), i7_fpix0); \
+    }
+#define CV_WARP_SIMDX_SHUFFLE_INTER_STORE_C3(INTER, DEPTH) \
+    CV_WARP_SIMDX_##INTER##_SHUFFLE_INTER_##DEPTH##C3_I(0) \
+    CV_WARP_SIMDX_##INTER##_SHUFFLE_INTER_##DEPTH##C3_I(1) \
+    CV_WARP_SIMDX_##INTER##_SHUFFLE_INTER_##DEPTH##C3_I(2) \
+    CV_WARP_SIMDX_##INTER##_SHUFFLE_INTER_##DEPTH##C3_I(3) \
+    CV_WARP_SIMDX_##INTER##_SHUFFLE_INTER_##DEPTH##C3_I(4) \
+    CV_WARP_SIMDX_##INTER##_SHUFFLE_INTER_##DEPTH##C3_I(5) \
+    CV_WARP_SIMDX_##INTER##_SHUFFLE_INTER_##DEPTH##C3_I(6) \
+    CV_WARP_SIMDX_##INTER##_SHUFFLE_INTER_##DEPTH##C3_I(7) \
+    CV_WARP_SIMDX_##INTER##_STORE_##DEPTH##C3_I() \
 
 #define CV_WARP_VECTOR_SHUFFLE_INTER_STORE(SIMD, INTER, DEPTH, CN) \
     CV_WARP_##SIMD##_SHUFFLE_INTER_STORE_##CN(INTER, DEPTH)

@@ -807,7 +807,7 @@ void warpAffineNearestInvoker_16UC3(const uint16_t *src_data, size_t src_step, i
     #elif CV_SIMD128
                     CV_WARP_VECTOR_SHUFFLE_INTER_STORE(SIMD128, NEAREST, 16U, C3);
     #elif CV_SIMD_SCALABLE
-                    CV_WARP_VECTOR_SHUFFLE_INTER_STORE(SIMDx, NEAREST, 16U, C3);
+                    CV_WARP_VECTOR_SHUFFLE_INTER_STORE(SIMDX, NEAREST, 16U, C3);
     #endif
                 } else {
                     uint16_t pixbuf[max_uf*3];
