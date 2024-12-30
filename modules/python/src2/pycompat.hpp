@@ -46,6 +46,18 @@
 
 #include <string>
 
+#if defined(_WIN32)
+
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#define NOGDI
+
+#include <windows.h>
+
+static unsigned int code_page = GetACP();
+
+#endif
+
 #if PY_MAJOR_VERSION >= 3
 
 // Python3 treats all ints as longs, PyInt_X functions have been removed.
@@ -57,9 +69,22 @@
 #define PyInt_FromLong PyLong_FromLong
 #define PyNumber_Int PyNumber_Long
 
+#if defined(_WIN32)
 
+static inline PyObject* PyString_FromString(const char* u)
+{
+    if (code_page == 65001) return PyUnicode_FromString(u);
+    return PyUnicode_DecodeMBCS(u, strlen(u), NULL);
+}
+static inline PyObject* PyString_FromStringAndSize(const char* u, Py_ssize_t size)
+{
+    if (code_page == 65001) return PyUnicode_FromStringAndSize(u, size);
+    return PyUnicode_DecodeMBCS(u, size, NULL);
+}
+#else
 #define PyString_FromString PyUnicode_FromString
 #define PyString_FromStringAndSize PyUnicode_FromStringAndSize
+#endif
 
 #endif // PY_MAJOR >=3
 
@@ -72,7 +97,13 @@ static inline bool getUnicodeString(PyObject * obj, std::string &str)
     bool res = false;
     if (PyUnicode_Check(obj))
     {
-        PyObject * bytes = PyUnicode_AsUTF8String(obj);
+        PyObject* bytes;
+#if defined(_WIN32)
+        if (code_page == 65001) bytes = PyUnicode_AsUTF8String(obj);
+        else bytes = PyUnicode_AsMBCSString(obj);
+#else
+        bytes = PyUnicode_AsUTF8String(obj);
+#endif
         if (PyBytes_Check(bytes))
         {
             const char * raw = PyBytes_AsString(bytes);
