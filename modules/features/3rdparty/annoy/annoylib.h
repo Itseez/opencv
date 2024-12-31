@@ -57,6 +57,7 @@ typedef signed __int64    int64_t;
 #include <algorithm>
 #include <queue>
 #include <limits>
+#include <map>
 
 #if __cplusplus >= 201103L
 #include <type_traits>
@@ -145,6 +146,7 @@ using std::vector;
 using std::pair;
 using std::numeric_limits;
 using std::make_pair;
+using std::map;
 
 inline bool remap_memory_and_truncate(void** _ptr, int _fd, size_t old_size, size_t new_size) {
 #ifdef __linux__
@@ -917,6 +919,7 @@ class AnnoyIndexInterface {
   virtual void get_nns_by_vector(const T* w, size_t n, int search_k, vector<S>* result, vector<T>* distances) const = 0;
   virtual S get_n_items() const = 0;
   virtual S get_n_trees() const = 0;
+  virtual S get_n_nodes(S root) const = 0;
   virtual void verbose(bool v) = 0;
   virtual void get_item(S item, T* v) const = 0;
   virtual void set_seed(R q) = 0;
@@ -955,6 +958,8 @@ protected:
   S _n_nodes;
   S _nodes_size;
   vector<S> _roots;
+  int _tree_idx;
+  map<int, S> _rt_order;
   S _K;
   R _seed;
   bool _loaded;
@@ -1051,6 +1056,27 @@ public:
 
     ThreadedBuildPolicy::template build<S, T>(this, q, n_threads);
 
+    if (q == -1) {
+      // Remove extra trees if any
+      int num_nodes = _n_nodes;
+      typename map<int, S>::reverse_iterator rit;
+      for (rit = _rt_order.rbegin(); rit != _rt_order.rend(); ++rit) {
+        S rt_idx = rit->second;
+        S num_tree_nodes = get_n_nodes(rt_idx);
+        num_nodes -= num_tree_nodes;
+
+        // the criteria of stopping building trees when tree number is not
+        // specified: _n_nodes >= 2 * _n_items
+        if (num_nodes > 2 * _n_items) {
+          auto it = std::remove(_roots.begin(), _roots.end(), rt_idx);
+          _roots.erase(it, _roots.end());
+          // _n_nodes -= num_tree_nodes;
+        }
+        else
+          break;
+      }
+    }
+
     // Also, copy the roots into the last segment of the array
     // This way we can load them faster without reading the whole file
     _allocate_size(_n_nodes + (S)_roots.size());
@@ -1084,6 +1110,8 @@ public:
     }
 
     _roots.clear();
+    _tree_idx = 0;
+    _rt_order.clear();
     _n_nodes = _n_items;
     _built = false;
 
@@ -1136,6 +1164,8 @@ public:
     _on_disk = false;
     _seed = Random::default_seed;
     _roots.clear();
+    _tree_idx = 0;
+    _rt_order.clear();
   }
 
   void unload() override {
@@ -1243,6 +1273,14 @@ public:
     return (S)_roots.size();
   }
 
+  S get_n_nodes(S root) const override {
+    if (root == 0 || root < _n_items)
+      return 0;
+
+    const Node* m = _get(root);
+    return 1 + get_n_nodes(m->children[0]) + get_n_nodes(m->children[1]);
+  }
+
   void verbose(bool v) override {
     _verbose = v;
   }
@@ -1257,9 +1295,8 @@ public:
     _seed = seed;
   }
 
-  void thread_build(int q, int thread_idx, ThreadedBuildPolicy& threaded_build_policy) {
-    // Each thread needs its own seed, otherwise each thread would be building the same tree(s)
-    Random _random(_seed + thread_idx);
+  void thread_build(int q, ThreadedBuildPolicy& threaded_build_policy) {
+    Random _random(_seed);
 
     vector<S> thread_roots;
     while (1) {
@@ -1287,7 +1324,13 @@ public:
       }
       threaded_build_policy.unlock_shared_nodes();
 
-      thread_roots.push_back(_make_tree(indices, true, _random, threaded_build_policy));
+      int tree_idx;
+      S root = _make_tree(indices, true, _random, tree_idx, threaded_build_policy);
+      thread_roots.push_back(root);
+
+      threaded_build_policy.lock_root_order();
+      _rt_order.insert(make_pair(tree_idx, root));
+      threaded_build_policy.unlock_root_order();
     }
 
     threaded_build_policy.lock_roots();
@@ -1341,7 +1384,7 @@ protected:
     return std::max(f, 1-f);
   }
 
-  S _make_tree(const vector<S>& indices, bool is_root, Random& _random, ThreadedBuildPolicy& threaded_build_policy) {
+  S _make_tree(const vector<S>& indices, bool is_root, Random& _random, int& tree_idx, ThreadedBuildPolicy& threaded_build_policy) {
     // The basic rule is that if we have <= _K items, then it's a leaf node, otherwise it's a split node.
     // There's some regrettable complications caused by the problem that root nodes have to be "special":
     // 1. We identify root nodes by the arguable logic that _n_items == n->n_descendants, regardless of how many descendants they actually have
@@ -1369,6 +1412,15 @@ protected:
 
       threaded_build_policy.unlock_shared_nodes();
       return item;
+    }
+
+    // each tree gets its own seed
+    if(is_root)
+    {
+      threaded_build_policy.lock_tree_idx();
+      tree_idx = _tree_idx;
+      _random.set_seed(_seed + 3 * (_tree_idx++));
+      threaded_build_policy.unlock_tree_idx();
     }
 
     threaded_build_policy.lock_shared_nodes();
@@ -1429,7 +1481,7 @@ protected:
     m->n_descendants = is_root ? _n_items : (S)indices.size();
     for (int side = 0; side < 2; side++) {
       // run _make_tree for the smallest child first (for cache locality)
-      m->children[side^flip] = _make_tree(children_indices[side^flip], false, _random, threaded_build_policy);
+      m->children[side^flip] = _make_tree(children_indices[side^flip], false, _random, tree_idx, threaded_build_policy);
     }
 
     threaded_build_policy.lock_n_nodes();
@@ -1509,7 +1561,7 @@ public:
   template<typename S, typename T, typename D, typename Random>
   static void build(AnnoyIndex<S, T, D, Random, AnnoyIndexSingleThreadedBuildPolicy>* annoy, int q, int /*n_threads*/) {
     AnnoyIndexSingleThreadedBuildPolicy threaded_build_policy;
-    annoy->thread_build(q, 0, threaded_build_policy);
+    annoy->thread_build(q, threaded_build_policy);
   }
 
   void lock_n_nodes() {}
@@ -1523,6 +1575,12 @@ public:
 
   void lock_roots() {}
   void unlock_roots() {}
+
+  void lock_tree_idx() {}
+  void unlock_tree_idx() {}
+
+  void lock_root_order() {}
+  void unlock_root_order() {}
 };
 
 #ifdef ANNOYLIB_MULTITHREADED_BUILD
@@ -1531,6 +1589,8 @@ private:
   std::shared_timed_mutex nodes_mutex;
   std::mutex n_nodes_mutex;
   std::mutex roots_mutex;
+  std::mutex tree_idx_mutex;
+  std::mutex root_order_mutex;
 
 public:
   template<typename S, typename T, typename D, typename Random>
@@ -1540,6 +1600,7 @@ public:
       // If the hardware_concurrency() value is not well defined or not computable, it returns 0.
       // We guard against this by using at least 1 thread.
       n_threads = std::max(1, (int)std::thread::hardware_concurrency());
+      // n_threads = 1;
     }
 
     vector<std::thread> threads(n_threads);
@@ -1551,7 +1612,6 @@ public:
         &AnnoyIndex<S, T, D, Random, AnnoyIndexMultiThreadedBuildPolicy>::thread_build,
         annoy,
         trees_per_thread,
-        thread_idx,
         std::ref(threaded_build_policy)
       );
     }
@@ -1587,6 +1647,20 @@ public:
   }
   void unlock_roots() {
     roots_mutex.unlock();
+  }
+
+  void lock_tree_idx() {
+    tree_idx_mutex.lock();
+  }
+  void unlock_tree_idx() {
+    tree_idx_mutex.unlock();
+  }
+
+  void lock_root_order() {
+    root_order_mutex.lock();
+  }
+  void unlock_root_order() {
+    root_order_mutex.unlock();
   }
 };
 #endif
