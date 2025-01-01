@@ -795,6 +795,15 @@ class Arguments(NewOpenCVTests):
         self.assertTrue(isinstance(rr, tuple), msg=type(rrv))
         self.assertEqual(len(rr), 3)
 
+    def test_array_range(self):
+        m = np.array([[0, 1, 2, 3, 4],
+                      [5, 6, 7, 8, 9],
+                      [10, 11, 12, 13, 14],
+                      [15, 16, 17, 18, 19]], dtype=np.uint8)
+        roi_min, roi_max, _, _ = cv.minMaxLoc(m[1:3, 1:4])
+        self.assertEqual(roi_min, 6)
+        self.assertEqual(roi_max, 13)
+
     def test_nested_function_availability(self):
         self.assertTrue(hasattr(cv.utils, "nested"),
                         msg="Module is not generated for nested namespace")

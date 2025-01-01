@@ -307,6 +307,25 @@ bool pyopencv_to(PyObject* o, Mat& m, const ArgInfo& info)
     }
     m.allocator = &GetNumpyAllocator();
 
+    // Whether oarr is an ROI
+    PyObject *obase = PyArray_BASE(oarr);
+    if (obase)
+    {
+        PyArray_Chunk chunk;
+        int res = PyArray_BufferConverter(obase, &chunk);
+        if (res == NPY_SUCCEED)
+        {
+            uchar *start = (uchar *)chunk.ptr;
+            uchar *end = start + chunk.len;
+            if (start < m.datastart || end > m.dataend)
+            {
+                m.datastart = start;
+                m.datalimit = m.dataend = end;
+                m.flags |= Mat::SUBMATRIX_FLAG;
+            }
+        }
+    }
+
     return true;
 }
 
