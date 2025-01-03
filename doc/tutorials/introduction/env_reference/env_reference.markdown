@@ -327,5 +327,6 @@ Some external dependencies can be detached into a dynamic library, which will be
 | OPENCV_IO_MAX_IMAGE_WIDTH | num | 1 << 20, limit input image size to avoid large memory allocations | |
 | OPENCV_IO_MAX_IMAGE_HEIGHT | num | 1 << 20 | |
 | OPENCV_IO_MAX_IMAGE_PIXELS | num | 1 << 30 | |
-| OPENCV_IO_ENABLE_OPENEXR | bool | true (set build option OPENCV_IO_FORCE_OPENEXR or use external OpenEXR), false (otherwise) | enable OpenEXR backend |
 | OPENCV_IO_ENABLE_JASPER | bool | true (set build option OPENCV_IO_FORCE_JASPER), false (otherwise) | enable Jasper backend |
+
+@note OPENCV_IO_ENABLE_OPENEXR is deprecated because bundled OpenEXR library had been removed.

@@ -83,27 +83,6 @@
 namespace cv
 {
 
-static bool isOpenEXREnabled()
-{
-    static const bool PARAM_ENABLE_OPENEXR = utils::getConfigurationParameterBool("OPENCV_IO_ENABLE_OPENEXR",
-#ifdef OPENCV_IMGCODECS_USE_OPENEXR
-        true
-#else
-        false
-#endif
-    );
-    return PARAM_ENABLE_OPENEXR;
-}
-static void initOpenEXR()
-{
-    if (!isOpenEXREnabled())
-    {
-        const char* message = "imgcodecs: OpenEXR codec is disabled. You can enable it via 'OPENCV_IO_ENABLE_OPENEXR' option. Refer for details and cautions here: https://github.com/opencv/opencv/issues/21326";
-        CV_LOG_WARNING(NULL, message);
-        CV_Error(Error::StsNotImplemented, message);
-    }
-}
-
 /////////////////////// ExrDecoder ///////////////////
 
 ExrDecoder::ExrDecoder()
@@ -676,7 +655,6 @@ void  ExrDecoder::RGBToGray( float *in, float *out )
 
 ImageDecoder ExrDecoder::newDecoder() const
 {
-    initOpenEXR();
     return makePtr<ExrDecoder>();
 }
 
@@ -853,7 +831,6 @@ bool  ExrEncoder::write( const Mat& img, const std::vector<int>& params )
 
 ImageEncoder ExrEncoder::newEncoder() const
 {
-    initOpenEXR();
     return makePtr<ExrEncoder>();
 }
 
