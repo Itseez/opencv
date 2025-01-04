@@ -741,6 +741,7 @@ between minInertiaRatio (inclusive) and maxInertiaRatio (exclusive).
 minConvexity (inclusive) and maxConvexity (exclusive).
 
 Default values of parameters are tuned to extract dark circular blobs.
+@note Don't disable the param filterByArea with dark blobs and white backgound, findContours() find extra contour in this case.
  */
 class CV_EXPORTS_W SimpleBlobDetector : public Feature2D
 {

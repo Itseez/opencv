@@ -4002,7 +4002,7 @@ CV_EXPORTS_W int connectedComponentsWithStats(InputArray image, OutputArray labe
 
 The function retrieves contours from the binary image using the algorithm @cite Suzuki85 . The contours
 are a useful tool for shape analysis and object detection and recognition. See squares.cpp in the
-OpenCV sample directory.
+OpenCV sample directory, tutorial @ref tutorial_py_contours_begin} or @ref tutorial_find_contours.
 @note Since opencv 3.2 source image is not modified by this function.
 
 @param image Source, an 8-bit single-channel image. Non-zero pixels are treated as 1's. Zero
@@ -4023,6 +4023,8 @@ parent, or nested contours, the corresponding elements of hierarchy[i] will be n
 @param offset Optional offset by which every contour point is shifted. This is useful if the
 contours are extracted from the image ROI and then they should be analyzed in the whole image
 context.
+@note In OpenCV, finding contours is like finding white object from black background. So remember,
+object to be found should be white and background should be black.
  */
 CV_EXPORTS_W void findContours( InputArray image, OutputArrayOfArrays contours,
                               OutputArray hierarchy, int mode,
