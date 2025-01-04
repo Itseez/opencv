@@ -289,7 +289,7 @@ static
 inline void get_monotonic_time(timespec *tv)
 {
     LARGE_INTEGER           t;
-    FILETIME				f;
+    FILETIME        f;
     double                  microseconds;
     static LARGE_INTEGER    offset;
     static double           frequencyToMicroseconds;

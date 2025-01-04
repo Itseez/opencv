@@ -67,6 +67,16 @@ if(WITH_AVIF)
   endif()
 endif()
 
+# --- libavif (optional) ---
+
+if(WITH_AVIF)
+  ocv_clear_internal_cache_vars(AVIF_LIBRARY AVIF_INCLUDE_DIR)
+  include(cmake/OpenCVFindAVIF.cmake)
+  if(AVIF_FOUND)
+    set(HAVE_AVIF 1)
+  endif()
+endif()
+
 # --- libjpeg (optional) ---
 if(WITH_JPEG)
   if(BUILD_JPEG)

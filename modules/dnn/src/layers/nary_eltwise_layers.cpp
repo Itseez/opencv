@@ -213,6 +213,8 @@ public:
         WHERE,
     } op;
 
+    // If the eltwise implementation is modified, you need to force enable the 'Layer_Test_Eltwise_bcast'
+    // test in the 'test_layers.cpp' file to make sure it all passes
     NaryEltwiseLayerImpl(const LayerParams& params)
     {
         setParamsFrom(params);
