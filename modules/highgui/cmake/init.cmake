@@ -3,7 +3,7 @@ if(PROJECT_NAME STREQUAL "OpenCV")
   if(EMSCRIPTEN OR IOS OR WINRT)
     set(ENABLE_PLUGINS_DEFAULT OFF)
   endif()
-  set(HIGHGUI_PLUGIN_LIST "" CACHE STRING "List of GUI backends to be compiled as plugins (gtk, gtk2/gtk3, qt, win32 or special value 'all')")
+  set(HIGHGUI_PLUGIN_LIST "" CACHE STRING "List of GUI backends to be compiled as plugins (gtk, gtk2/gtk3/gtk4, qt, win32 or special value 'all')")
   set(HIGHGUI_ENABLE_PLUGINS "${ENABLE_PLUGINS_DEFAULT}" CACHE BOOL "Allow building and using of GUI plugins")
   mark_as_advanced(HIGHGUI_PLUGIN_LIST HIGHGUI_ENABLE_PLUGINS)
 

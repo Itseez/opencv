@@ -54,18 +54,8 @@
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <stdio.h>
 
-#if (GTK_MAJOR_VERSION == 2)
-  #define GTK_VERSION2 1
-#endif //GTK_MAJOR_VERSION >= 2.0
-#if (GTK_MAJOR_VERSION == 3)
-  #define GTK_VERSION3 1
-#endif //GTK_MAJOR_VERSION >= 3
-#if (GTK_MAJOR_VERSION == 3 && GTK_MINOR_VERSION >= 4)
-  #define GTK_VERSION3_4 1
-#endif
-
 #ifdef HAVE_OPENGL
-  #ifdef GTK_VERSION3
+  #if (GTK_MAJOR_VERSION >= 3)
     #include <gtk/gtkglarea.h>
   #else
     #include <gtk/gtkgl.h>
@@ -165,8 +155,11 @@ GtkWidget*
 cvImageWidgetNew (int flags)
 {
   CvImageWidget *image_widget;
-
+#if (GTK_MAJOR_VERSION <= 3)
   image_widget = CV_IMAGE_WIDGET( gtk_widget_new (cvImageWidget_get_type (), NULL) );
+#else
+  image_widget = CV_IMAGE_WIDGET( g_object_new (cvImageWidget_get_type (), NULL) );
+#endif
   CV_Assert(image_widget && "GTK widget creation is failed. Ensure that there is no GTK2/GTK3 libraries conflict");
   image_widget->original_image = 0;
   image_widget->scaled_image = 0;
@@ -178,40 +171,59 @@ cvImageWidgetNew (int flags)
 static void
 cvImageWidget_realize (GtkWidget *widget)
 {
+#if (GTK_MAJOR_VERSION <= 3)
   GdkWindowAttr attributes;
   gint attributes_mask;
+#else
+  GdkSurface *surface = gtk_native_get_surface(GTK_NATIVE(widget));
+  cairo_rectangle_int_t rect;
+#endif
 
-#if defined(GTK_VERSION3)
+#if (GTK_MAJOR_VERSION >= 3)
   GtkAllocation allocation;
   gtk_widget_get_allocation(widget, &allocation);
-#endif //GTK_VERSION3
+#endif
 
-  //printf("cvImageWidget_realize\n");
   g_return_if_fail (widget != NULL);
   g_return_if_fail (CV_IS_IMAGE_WIDGET (widget));
 
+#if (GTK_MAJOR_VERSION <= 3)
   gtk_widget_set_realized(widget, TRUE);
+#else
+  gtk_widget_realize(widget);
+#endif
 
-#if defined(GTK_VERSION3)
+#if (GTK_MAJOR_VERSION >= 4)
+  rect = {allocation.x, allocation.y, allocation.width, allocation.height};
+#elif (GTK_MAJOR_VERSION == 3)
   attributes.x = allocation.x;
   attributes.y = allocation.y;
   attributes.width = allocation.width;
   attributes.height = allocation.height;
-#elif defined(GTK_VERSION2)
+#elif (GTK_MAJOR_VERSION == 2)
   attributes.x = widget->allocation.x;
   attributes.y = widget->allocation.y;
   attributes.width = widget->allocation.width;
   attributes.height = widget->allocation.height;
-#endif //GTK_VERSION3
+#endif
 
+#if (GTK_MAJOR_VERSION <= 3)
   attributes.wclass = GDK_INPUT_OUTPUT;
   attributes.window_type = GDK_WINDOW_CHILD;
   attributes.event_mask = gtk_widget_get_events (widget) |
     GDK_EXPOSURE_MASK | GDK_BUTTON_PRESS_MASK |
     GDK_BUTTON_RELEASE_MASK | GDK_POINTER_MOTION_MASK;
   attributes.visual = gtk_widget_get_visual (widget);
+#else
+  cairo_region_t *input_region = cairo_region_create_rectangle(&rect);
+  cairo_region_t *opaque_region = cairo_region_create_rectangle(&rect);
+  gdk_surface_set_input_region(surface, input_region);
+  gdk_surface_set_opaque_region(surface, opaque_region);
+  cairo_region_destroy(input_region);
+  cairo_region_destroy(opaque_region);
+#endif
 
-#if defined(GTK_VERSION3)
+#if (GTK_MAJOR_VERSION == 3)
   attributes_mask = GDK_WA_X | GDK_WA_Y | GDK_WA_VISUAL;
   gtk_widget_set_window(
       widget,
@@ -240,7 +252,7 @@ cvImageWidget_realize (GtkWidget *widget)
       gtk_widget_get_window(widget),
       GTK_STATE_ACTIVE
       );
- #elif defined(GTK_VERSION2)
+ #elif (GTK_MAJOR_VERSION == 2)
   // The following lines are included to prevent breaking
   // compatibility with older Gtk2 (<gtk+-2.18) libraries.
   attributes.colormap = gtk_widget_get_colormap (widget);
@@ -263,7 +275,7 @@ static CvSize cvImageWidget_calc_size( int im_width, int im_height, int max_widt
     return cvSize( cvRound(max_height*aspect), max_height );
 }
 
-#if defined (GTK_VERSION3)
+#if (GTK_MAJOR_VERSION == 3)
 static void
 cvImageWidget_get_preferred_width (GtkWidget *widget, gint *minimal_width, gint *natural_width)
 {
@@ -311,9 +323,9 @@ cvImageWidget_get_preferred_height (GtkWidget *widget, gint *minimal_height, gin
     *natural_height = *minimal_height;
   }
 }
-#endif //GTK_VERSION3
+#endif // GTK_MAJOR_VERSION == 3
 
-#if defined (GTK_VERSION2)
+#if (GTK_MAJOR_VERSION == 2)
 static void
 cvImageWidget_size_request (GtkWidget      *widget,
                        GtkRequisition *requisition)
@@ -344,7 +356,7 @@ cvImageWidget_size_request (GtkWidget      *widget,
     }
     //printf("%d %d\n",requisition->width, requisition->height);
 }
-#endif //GTK_VERSION2
+#endif // GTK_MAJOR_VERSION == 2
 
 static void cvImageWidget_set_size(GtkWidget * widget, int max_width, int max_height){
     CvImageWidget * image_widget = CV_IMAGE_WIDGET( widget );
@@ -372,22 +384,32 @@ static void cvImageWidget_set_size(GtkWidget * widget, int max_width, int max_he
     CV_Assert(image_widget->scaled_image);
 }
 
+#if (GTK_MAJOR_VERSION <= 3)
 static void
 cvImageWidget_size_allocate (GtkWidget     *widget,
                         GtkAllocation *allocation)
+#else
+static void
+cvImageWidget_size_allocate (GtkWidget     *widget,
+                        int width, int height, int baseline)
+#endif
 {
   CvImageWidget *image_widget;
 
   //printf("cvImageWidget_size_allocate\n");
   g_return_if_fail (widget != NULL);
   g_return_if_fail (CV_IS_IMAGE_WIDGET (widget));
+#if (GTK_MAJOR_VERSION <= 3)
   g_return_if_fail (allocation != NULL);
+#endif
 
-#if defined (GTK_VERSION3)
+#if (GTK_MAJOR_VERSION >= 4)
+  GtkAllocation allocation;
+#elif (GTK_MAJOR_VERSION == 3)
   gtk_widget_set_allocation(widget, allocation);
-#elif defined (GTK_VERSION2)
+#elif (GTK_MAJOR_VERSION == 2)
   widget->allocation = *allocation;
-#endif //GTK_VERSION3
+#endif
   image_widget = CV_IMAGE_WIDGET (widget);
 
 
@@ -398,7 +420,11 @@ cvImageWidget_size_allocate (GtkWidget     *widget,
                                           image_widget->original_image->rows);
       }
       else{
+#if (GTK_MAJOR_VERSION <= 3)
           cvImageWidget_set_size( widget, allocation->width, allocation->height );
+#else
+          cvImageWidget_set_size( widget, width, height );
+#endif
       }
       cvResize( image_widget->original_image, image_widget->scaled_image, CV_INTER_AREA );
   }
@@ -411,37 +437,53 @@ cvImageWidget_size_allocate (GtkWidget     *widget,
               ((image_widget->flags & cv::WINDOW_AUTOSIZE) ||
                (image_widget->flags & CV_WINDOW_NO_IMAGE)) )
       {
-#if defined (GTK_VERSION3)
+#if (GTK_MAJOR_VERSION >= 4)
+          allocation.width = image_widget->original_image->cols;
+          allocation.height = image_widget->original_image->rows;
+#elif (GTK_MAJOR_VERSION == 3)
           allocation->width = image_widget->original_image->cols;
           allocation->height = image_widget->original_image->rows;
           gtk_widget_set_allocation(widget, allocation);
-#elif defined (GTK_VERSION2)
+#elif (GTK_MAJOR_VERSION == 2)
           widget->allocation.width = image_widget->original_image->cols;
           widget->allocation.height = image_widget->original_image->rows;
 #endif //GTK_VERSION3
+#if (GTK_MAJOR_VERSION <= 3)
           gdk_window_move_resize( gtk_widget_get_window(widget),
               allocation->x, allocation->y,
               image_widget->original_image->cols, image_widget->original_image->rows );
+#else
+          allocation.width = image_widget->original_image->cols;
+          allocation.height = image_widget->original_image->rows;
+          gtk_widget_size_allocate(widget, &allocation, baseline);
+#endif
           if(image_widget->flags & CV_WINDOW_NO_IMAGE){
               image_widget->flags &= ~CV_WINDOW_NO_IMAGE;
               gtk_widget_queue_resize( GTK_WIDGET(widget) );
           }
       }
       else{
+#if (GTK_MAJOR_VERSION <= 3)
           gdk_window_move_resize (gtk_widget_get_window(widget),
                   allocation->x, allocation->y,
                   allocation->width, allocation->height );
+#else
+          gtk_widget_size_allocate(GTK_WIDGET(widget), &allocation, baseline);
+#endif
       }
     }
 }
 
-#if defined (GTK_VERSION3)
+#if (GTK_MAJOR_VERSION >= 4)
+static void
+cvImageWidget_destroy (GObject *object)
+#elif (GTK_MAJOR_VERSION == 3)
 static void
 cvImageWidget_destroy (GtkWidget *object)
 #else
 static void
 cvImageWidget_destroy (GtkObject *object)
-#endif //GTK_VERSION3
+#endif
 {
   CvImageWidget *image_widget;
 
@@ -453,7 +495,10 @@ cvImageWidget_destroy (GtkObject *object)
   cvReleaseMat( &image_widget->scaled_image );
   cvReleaseMat( &image_widget->original_image );
 
-#if defined (GTK_VERSION3)
+#if (GTK_MAJOR_VERSION >= 4)
+  if (G_OBJECT_CLASS (parent_class)->dispose)
+    (* G_OBJECT_CLASS (parent_class)->dispose) (object);
+#elif (GTK_MAJOR_VERSION == 3)
   if (GTK_WIDGET_CLASS (parent_class)->destroy)
     (* GTK_WIDGET_CLASS (parent_class)->destroy) (object);
 #else
@@ -462,34 +507,81 @@ cvImageWidget_destroy (GtkObject *object)
 #endif //GTK_VERSION3
 }
 
+#if (GTK_MAJOR_VERSION >= 4)
+static void cvImageWidget_measure (GtkWidget *widget,
+                                   GtkOrientation orientation,
+                                   int for_size,
+                                   int *minimum,
+                                   int *natural,
+                                   int *minimum_baseline,
+                                   int *natural_baseline)
+{
+    CvImageWidget *image_widget = CV_IMAGE_WIDGET(widget);
+
+    if (orientation == GTK_ORIENTATION_HORIZONTAL) {
+        if (image_widget->original_image &&
+            ((image_widget->flags & cv::WINDOW_AUTOSIZE) ||
+             (image_widget->flags & CV_WINDOW_NO_IMAGE))) {
+            *minimum = *natural = image_widget->original_image->cols;
+             } else if (image_widget->scaled_image) {
+                 *minimum = *natural = image_widget->scaled_image->cols;
+             } else {
+                 *minimum = *natural = 320;  // default width
+             }
+    } else {
+        if (image_widget->original_image &&
+            ((image_widget->flags & cv::WINDOW_AUTOSIZE) ||
+             (image_widget->flags & CV_WINDOW_NO_IMAGE))) {
+            *minimum = *natural = image_widget->original_image->rows;
+             } else if (image_widget->scaled_image) {
+                 *minimum = *natural = image_widget->scaled_image->rows;
+             } else {
+                 *minimum = *natural = 240;  // default height
+             }
+    }
+
+    if (minimum_baseline) *minimum_baseline = -1;
+    if (natural_baseline) *natural_baseline = -1;
+}
+#endif
+
 static void cvImageWidget_class_init (gpointer g_class, gpointer /*class_data*/)
 {
   CvImageWidgetClass* klass = (CvImageWidgetClass*)g_class;
-#if defined (GTK_VERSION3)
+#if (GTK_MAJOR_VERSION >= 3)
   GtkWidgetClass *widget_class = GTK_WIDGET_CLASS (klass);
-#endif //GTK_VERSION3
-#if defined (GTK_VERSION2)
+#endif
+#if (GTK_MAJOR_VERSION == 4)
+  GObjectClass *g_object_class = G_OBJECT_CLASS(klass);
+#endif
+#if (GTK_MAJOR_VERSION == 2)
   GtkObjectClass *object_class = (GtkObjectClass*) klass;
   GtkWidgetClass *widget_class = (GtkWidgetClass*) klass;
-#endif //GTK_VERSION2
+#endif
 
   parent_class = GTK_WIDGET_CLASS( g_type_class_peek (gtk_widget_get_type ()) );
 
-#if defined (GTK_VERSION3)
+#if (GTK_MAJOR_VERSION >= 4)
+  g_object_class->dispose = cvImageWidget_destroy;
+  widget_class->measure = cvImageWidget_measure;
+#elif (GTK_MAJOR_VERSION == 3)
   widget_class->destroy = cvImageWidget_destroy;
   widget_class->get_preferred_width = cvImageWidget_get_preferred_width;
   widget_class->get_preferred_height = cvImageWidget_get_preferred_height;
-#endif //GTK_VERSION3
-#if defined (GTK_VERSION2)
+#else
   object_class->destroy = cvImageWidget_destroy;
   widget_class->size_request = cvImageWidget_size_request;
-#endif //GTK_VERSION2
+#endif
 
   widget_class->realize = cvImageWidget_realize;
   widget_class->size_allocate = cvImageWidget_size_allocate;
+#if (GTK_MAJOR_VERSION <= 3)
   widget_class->button_press_event = NULL;
   widget_class->button_release_event = NULL;
   widget_class->motion_notify_event = NULL;
+#else
+    // TODO
+#endif
 }
 
 static void
@@ -604,7 +696,11 @@ struct CvWindow : CvUIBase
 
 
 static gboolean icvOnClose( GtkWidget* widget, GdkEvent* event, gpointer user_data );
+#if (GTK_MAJOR_VERSION >= 4)
+static gboolean icvOnKeyPress( GtkWidget* widget, GdkEvent* gdk_event, gpointer user_data);
+#else
 static gboolean icvOnKeyPress( GtkWidget* widget, GdkEventKey* event, gpointer user_data );
+#endif
 static void icvOnTrackbar( GtkWidget* widget, gpointer user_data );
 static gboolean icvOnMouse( GtkWidget *widget, GdkEvent *event, gpointer user_data );
 
@@ -631,7 +727,14 @@ CV_IMPL int cvInitSystem( int argc, char** argv )
     // check initialization status
     if( !wasInitialized )
     {
-        if (!gtk_init_check(&argc, &argv))
+#if (GTK_MAJOR_VERSION <= 3)
+        auto gtk_success = gtk_init_check(&argc, &argv);
+#else
+        CV_UNUSED(agrc);
+        CV_UNUSED(agrv);
+        auto gtk_success = gtk_init_check();
+#endif
+        if(!gtk_success)
         {
             hasError = true;
             wasInitialized = true;
@@ -640,7 +743,7 @@ CV_IMPL int cvInitSystem( int argc, char** argv )
 
         setlocale(LC_NUMERIC,"C");
 
-        #if defined(HAVE_OPENGL) && not defined(GTK_VERSION3) // GTK3+ uses GtkGLArea so no need to check for GtkGLExt
+        #if defined(HAVE_OPENGL) && (GTK_MAJOR_VERSION <= 2) // GTK3+ uses GtkGLArea so no need to check for GtkGLExt
             if (!gtk_gl_init_check(&argc, &argv))
             {
                 hasError = true;
@@ -680,7 +783,11 @@ gpointer icvWindowThreadLoop(gpointer /*data*/)
     while(1){
         {
             cv::AutoLock lock(getWindowMutex());
+        #if (GTK_MAJOR_VERSION >= 4)
+            g_main_context_iteration(NULL, FALSE);
+        #else
             gtk_main_iteration_do(FALSE);
+        #endif
         }
 
         // little sleep
@@ -742,7 +849,7 @@ CvRect cvGetWindowRect_GTK(const char* name)
     return cvRect(getImageRect_(window));
 }
 
-#if defined(GTK_VERSION2)
+#if (GTK_MAJOR_VERSION == 2)
     #define gtk_widget_get_allocated_width(widget) (widget->allocation.width)
     #define gtk_widget_get_allocated_height(widget) (widget->allocation.height)
 #endif
@@ -750,17 +857,28 @@ CvRect cvGetWindowRect_GTK(const char* name)
 static Rect getImageRect_(const std::shared_ptr<CvWindow>& window)
 {
     CV_Assert(window);
-
+#if (GTK_MAJOR_VERSION >= 4)
+    double wx, wy;
+#else
     gint wx, wy;
+#endif
 #ifdef HAVE_OPENGL
     if (window->useGl) {
+    #if (GTK_MAJOR_VERSION <= 3)
         gtk_widget_translate_coordinates(window->widget, gtk_widget_get_toplevel(window->widget), 0, 0, &wx, &wy);
+    #else
+        gtk_widget_translate_coordinates(window->widget, GTK_WIDGET(gtk_widget_get_root(window->widget)), 0, 0, &wx, &wy);
+    #endif
         return Rect(wx, wy, gtk_widget_get_allocated_width(window->widget), gtk_widget_get_allocated_height(window->widget));
     }
 #endif
 
     CvImageWidget * image_widget = CV_IMAGE_WIDGET( window->widget );
+#if (GTK_MAJOR_VERSION <= 3)
     gtk_widget_translate_coordinates(&image_widget->widget, gtk_widget_get_toplevel(&image_widget->widget), 0, 0, &wx, &wy);
+#else
+    gtk_widget_translate_coordinates(window->widget, GTK_WIDGET(gtk_widget_get_root(window->widget)), 0, 0, &wx, &wy);
+#endif
     if (image_widget->scaled_image) {
       return Rect(wx, wy, MIN(image_widget->scaled_image->cols, gtk_widget_get_allocated_width(window->widget)),
           MIN(image_widget->scaled_image->rows, gtk_widget_get_allocated_height(window->widget)));
@@ -903,7 +1021,7 @@ double cvGetOpenGlProp_GTK(const char* name)
 namespace
 {
 
-#ifdef GTK_VERSION3
+#if (GTK_MAJOR_VERSION >= 3)
 
     void glRealizeCallback(GtkGLArea* area, gpointer user_data) {
         CV_UNUSED(user_data);
@@ -931,11 +1049,10 @@ namespace
 
     void createGlContext(CvWindow* window)
     {
-        #ifdef GTK_VERSION3
+    #if (GTK_MAJOR_VERSION >= 4)
         g_signal_connect(window->glArea, "realize", G_CALLBACK(glRealizeCallback), window);
         g_signal_connect(window->glArea, "render", G_CALLBACK(glRenderCallback), window);
-        #else
-
+    #else
         GdkGLConfig* glconfig;
 
         // Try double-buffered visual
@@ -946,25 +1063,21 @@ namespace
         // Set OpenGL-capability to the widget
         if (!gtk_widget_set_gl_capability(window->widget, glconfig, NULL, TRUE, GDK_GL_RGBA_TYPE))
             CV_Error( cv::Error::OpenGlApiCallError, "Can't Create A GL Device Context" );
-
-        #endif
+    #endif
 
         window->useGl = true;
     }
 
     void drawGl(CvWindow* window)
     {
-        #ifdef GTK_VERSION3
-
+    #if (GTK_MAJOR_VERSION >= 3)
         GtkGLArea* gtkGlArea = GTK_GL_AREA(window->glArea);
         if (gtk_gl_area_get_error(gtkGlArea) != NULL)
             CV_Error(cv::Error::OpenGlApiCallError, "Can't Activate The GL Rendering Context");
 
         if (window->glDrawCallback)
             window->glDrawCallback(window->glDrawData);
-
-        #else
-
+    #else
         GdkGLContext* glcontext = gtk_widget_get_gl_context(window->widget);
         GdkGLDrawable* gldrawable = gtk_widget_get_gl_drawable(window->widget);
 
@@ -984,16 +1097,15 @@ namespace
             glFlush();
 
         gdk_gl_drawable_gl_end(gldrawable);
-
-        #endif
+    #endif
     }
 }
 
 #endif // HAVE_OPENGL
 
-#if defined (GTK_VERSION2)
+#if (GTK_MAJOR_VERSION == 2)
 static gboolean cvImageWidget_expose(GtkWidget* widget, GdkEventExpose* event, gpointer data)
-#elif defined (GTK_VERSION3)
+#elif (GTK_MAJOR_VERSION >= 3)
 static gboolean cvImageWidget_draw(GtkWidget* widget, cairo_t *cr, gpointer data)
 #endif
 {
@@ -1008,7 +1120,7 @@ static gboolean cvImageWidget_draw(GtkWidget* widget, cairo_t *cr, gpointer data
 #else
     (void)data;
 #endif
-#if defined (GTK_VERSION2)
+#if (GTK_MAJOR_VERSION == 2)
     (void)event;
 #endif
 
@@ -1019,7 +1131,7 @@ static gboolean cvImageWidget_draw(GtkWidget* widget, cairo_t *cr, gpointer data
   g_return_val_if_fail (CV_IS_IMAGE_WIDGET (widget), FALSE);
 
   image_widget = CV_IMAGE_WIDGET (widget);
-#if defined (GTK_VERSION2)
+#if (GTK_MAJOR_VERSION == 2)
   cairo_t *cr = gdk_cairo_create(widget->window);
 #endif
 
@@ -1046,11 +1158,24 @@ static gboolean cvImageWidget_draw(GtkWidget* widget, cairo_t *cr, gpointer data
   cairo_paint(cr);
   if(pixbuf)
       g_object_unref(pixbuf);
-#if defined (GTK_VERSION2)
+#if (GTK_MAJOR_VERSION == 2)
   cairo_destroy(cr);
 #endif
   return TRUE;
 }
+
+#if (GTK_MAJOR_VERSION >= 4)
+static void cvImageWidget_response(GtkNativeDialog* dialog, gint response, gpointer user_data) {
+    cv::String* filename = static_cast<cv::String*>(user_data);
+    if(response == GTK_RESPONSE_ACCEPT) {
+        GtkFileChooser *chooser = GTK_FILE_CHOOSER(dialog);
+        GFile *file = gtk_file_chooser_get_file(chooser);
+        *filename = g_file_get_path(file);
+        g_free(file);
+    }
+    gtk_native_dialog_destroy(GTK_NATIVE_DIALOG(dialog));
+}
+#endif
 
 static std::shared_ptr<CvWindow> namedWindow_(const std::string& name, int flags);
 CV_IMPL int cvNamedWindow( const char* name, int flags )
@@ -1078,29 +1203,49 @@ static std::shared_ptr<CvWindow> namedWindow_(const std::string& name, int flags
     window->flags = flags;
     window->status = cv::WINDOW_NORMAL;//YV
 
+#if (GTK_MAJOR_VERSION <= 3)
     window->frame = gtk_window_new( GTK_WINDOW_TOPLEVEL );
+#else
+    window->frame = gtk_window_new(); // TODO use GtkWidget *window = gtk_application_window_new(app); ??
+#endif
 
     window->widget = cvImageWidgetNew( flags );
 
-#if defined(HAVE_OPENGL) && defined(GTK_VERSION3)
+#if defined(HAVE_OPENGL)
     if (flags & cv::WINDOW_OPENGL) {
         window->glArea = gtk_gl_area_new();
+#if (GTK_MAJOR_VERSION == 3)
         gtk_container_add(GTK_CONTAINER(window->frame), window->glArea);
+#elif (GTK_MAJOR_VERSION >= 4)
+        gtk_widget_set_parent(window->glArea, window->frame);
+#endif
         gtk_widget_show(window->glArea);
     } else {
+#if (GTK_MAJOR_VERSION == 3)
         window->paned = gtk_vbox_new( FALSE, 0 );
         gtk_box_pack_end( GTK_BOX(window->paned), window->widget, TRUE, TRUE, 0 );
-        gtk_widget_show( window->widget );
         gtk_container_add( GTK_CONTAINER(window->frame), window->paned );
+#elif (GTK_MAJOR_VERSION >= 4)
+        window->paned = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+        gtk_box_append(GTK_BOX(window->paned), window->widget);
+        gtk_widget_set_parent(window->paned, window->frame);
+#endif
+        gtk_widget_show( window->widget );
         gtk_widget_show( window->paned );
     }
 #else
+#if (GTK_MAJOR_VERSION >= 4)
+    window->paned = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    gtk_box_append(GTK_BOX(window->paned), window->widget);
+    gtk_widget_set_parent(window->paned, window->frame);
+#else
     window->paned = gtk_vbox_new( FALSE, 0 );
     gtk_box_pack_end( GTK_BOX(window->paned), window->widget, TRUE, TRUE, 0 );
-    gtk_widget_show( window->widget );
     gtk_container_add( GTK_CONTAINER(window->frame), window->paned );
-    gtk_widget_show( window->paned );
 #endif
+    gtk_widget_show( window->widget );
+    gtk_widget_show( window->paned );
+#endif // HAVE_OPENGL
 
 #ifndef HAVE_OPENGL
     if (flags & cv::WINDOW_OPENGL)
@@ -1128,20 +1273,20 @@ static std::shared_ptr<CvWindow> namedWindow_(const std::string& name, int flags
                         G_CALLBACK(icvOnMouse), window );
     g_signal_connect( window->frame, "delete-event",
                         G_CALLBACK(icvOnClose), window );
-#if defined(GTK_VERSION3)
+#if (GTK_MAJOR_VERSION >= 3)
     g_signal_connect( window->widget, "draw",
                         G_CALLBACK(cvImageWidget_draw), window );
 #else
     g_signal_connect( window->widget, "expose-event",
                         G_CALLBACK(cvImageWidget_expose), window );
-#endif //GTK_VERSION3
+#endif
 
 
-#if defined(GTK_VERSION3_4)
+#if (GTK_MAJOR_VERSION == 3) && (GTK_MINOR_VERSION >= 4)
     gtk_widget_add_events (window->widget, GDK_BUTTON_RELEASE_MASK | GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK | GDK_SCROLL_MASK | GDK_SMOOTH_SCROLL_MASK) ;
-#else
+#elif (GTK_MAJOR_VERSION < 4)
     gtk_widget_add_events (window->widget, GDK_BUTTON_RELEASE_MASK | GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK | GDK_SCROLL_MASK) ;
-#endif //GTK_VERSION3_4
+#endif
 
     gtk_widget_show( window->frame );
     gtk_window_set_title(GTK_WINDOW(window->frame), name.c_str());
@@ -1156,11 +1301,15 @@ static std::shared_ptr<CvWindow> namedWindow_(const std::string& name, int flags
 
     // allow window to be resized
     if( b_nautosize ){
+#if (GTK_MAJOR_VERSION <= 3)
         GdkGeometry geometry;
         geometry.min_width = 50;
         geometry.min_height = 50;
         gtk_window_set_geometry_hints( GTK_WINDOW( window->frame ), GTK_WIDGET( window->widget ),
             &geometry, (GdkWindowHints) (GDK_HINT_MIN_SIZE));
+#else
+        gtk_window_set_default_size(GTK_WINDOW(window->frame), 50, 50);
+#endif
     }
 
 #ifdef HAVE_OPENGL
@@ -1187,7 +1336,7 @@ CV_IMPL void cvSetOpenGlContext(const char* name)
     if (!window->useGl)
         CV_Error( cv::Error::OpenGlNotSupported, "Window doesn't support OpenGL" );
 
-#ifdef GTK_VERSION3
+#if (GTK_MAJOR_VERSION >= 3)
 
     if(gtk_gl_area_get_error(GTK_GL_AREA(window->glArea)) != NULL)
         CV_Error( cv::Error::OpenGlApiCallError, "Can't Activate The GL Rendering Context");
@@ -1218,7 +1367,7 @@ CV_IMPL void cvUpdateWindow(const char* name)
         return;
 
     // window does not refresh without this
-#ifdef GTK_VERSION3
+#if(GTK_MAJOR_VERSION >= 3)
 
     if ( GTK_IS_GL_AREA(window->glArea) ){
         gtk_gl_area_queue_render(GTK_GL_AREA(window->glArea));
@@ -1264,7 +1413,11 @@ CvWindow::~CvWindow()
 inline void CvWindow::destroy()
 {
     CV_LOG_INFO(NULL, "OpenCV/UI: destroying GTK window: " << name);
+#if (GTK_MAJOR_VERSION <= 3)
     gtk_widget_destroy(frame);
+#else
+    gtk_widget_unparent(frame);
+#endif
     frame = nullptr;
 }
 
@@ -1288,8 +1441,13 @@ static void checkLastWindow()
             // events) while we still have the chance.
             // This is not needed if thread_started is true, because the background
             // thread will process events continuously.
+#if (GTK_MAJOR_VERSION <= 3)
             while( gtk_events_pending() )
                 gtk_main_iteration();
+#else
+            while(g_main_context_pending(NULL) )
+                g_main_context_iteration(NULL, FALSE);
+#endif
         }
     }
 }
@@ -1410,7 +1568,11 @@ void resizeWindow_(const std::shared_ptr<CvWindow>& window, int width, int heigh
         //EXIT;
 
     gtk_window_set_resizable( GTK_WINDOW(window->frame), 1 );
+#if (GTK_MAJOR_VERSION <= 3)
     gtk_window_resize( GTK_WINDOW(window->frame), width, height );
+#else
+    gtk_window_set_default_size( GTK_WINDOW(window->frame), width, height );
+#endif
 
     // disable initial resize since presumably user wants to keep
     // this window size
@@ -1420,6 +1582,7 @@ void resizeWindow_(const std::shared_ptr<CvWindow>& window, int width, int heigh
 
 CV_IMPL void cvMoveWindow( const char* name, int x, int y )
 {
+#if(GTK_MAJOR_VERSION <= 3)
     CV_Assert(name && "NULL name string");
 
     CV_LOCK_MUTEX();
@@ -1427,8 +1590,13 @@ CV_IMPL void cvMoveWindow( const char* name, int x, int y )
     const auto window = icvFindWindowByName(name);
     if(!window)
         return;
-
     gtk_window_move( GTK_WINDOW(window->frame), x, y );
+#else
+    CV_UNUSED(name);
+    CV_UNUSED(x);
+    CV_UNUSED(y);
+    CV_LOG_ONCE_WARNING(nullptr, "Function not implemented: User cannot move window with GTK 4+.");
+#endif
 }
 
 static
@@ -1473,19 +1641,30 @@ icvCreateTrackbar( const char* trackbar_name, const char* window_name,
         trackbar->parent = window.get();
         window->trackbars.push_back(trackbar_);
 
-        GtkWidget* hscale_box = gtk_hbox_new( FALSE, 10 );
         GtkWidget* hscale_label = gtk_label_new( trackbar_name );
+#if (GTK_MAJOR_VERSION <= 3)
+        GtkWidget* hscale_box = gtk_hbox_new( FALSE, 10 );
         GtkWidget* hscale = gtk_hscale_new_with_range( 0, count, 1 );
+#else
+        GtkWidget* hscale_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+        GtkWidget* hscale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, count, 1);
+#endif
         gtk_scale_set_digits( GTK_SCALE(hscale), 0 );
         //gtk_scale_set_value_pos( hscale, GTK_POS_TOP );
         gtk_scale_set_draw_value( GTK_SCALE(hscale), TRUE );
 
         trackbar->widget = hscale;
+#if (GTK_MAJOR_VERSION <= 3)
         gtk_box_pack_start( GTK_BOX(hscale_box), hscale_label, FALSE, FALSE, 5 );
-        gtk_widget_show( hscale_label );
         gtk_box_pack_start( GTK_BOX(hscale_box), hscale, TRUE, TRUE, 5 );
-        gtk_widget_show( hscale );
         gtk_box_pack_start( GTK_BOX(window->paned), hscale_box, FALSE, FALSE, 5 );
+#else
+        gtk_box_append(GTK_BOX(hscale_box), hscale_label);
+        gtk_box_append(GTK_BOX(hscale_box), hscale);
+        gtk_box_append(GTK_BOX(window->paned), hscale_box);
+#endif
+        gtk_widget_show( hscale_label );
+        gtk_widget_show( hscale );
         gtk_widget_show( hscale_box );
     }
 
@@ -1552,19 +1731,31 @@ std::shared_ptr<CvTrackbar> createTrackbar_(
     trackbar->parent = window.get();
     window->trackbars.push_back(trackbar_);
 
-    GtkWidget* hscale_box = gtk_hbox_new( FALSE, 10 );
     GtkWidget* hscale_label = gtk_label_new(name.c_str());
+#if (GTK_MAJOR_VERSION <= 3)
+    GtkWidget* hscale_box = gtk_hbox_new( FALSE, 10 );
     GtkWidget* hscale = gtk_hscale_new_with_range( 0, count, 1 );
+#else
+    GtkWidget* hscale_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+    GtkWidget* hscale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, 0, count, 1);
+#endif
+
     gtk_scale_set_digits( GTK_SCALE(hscale), 0 );
     //gtk_scale_set_value_pos( hscale, GTK_POS_TOP );
     gtk_scale_set_draw_value( GTK_SCALE(hscale), TRUE );
 
     trackbar->widget = hscale;
+#if (GTK_MAJOR_VERSION <= 3)
     gtk_box_pack_start( GTK_BOX(hscale_box), hscale_label, FALSE, FALSE, 5 );
-    gtk_widget_show( hscale_label );
     gtk_box_pack_start( GTK_BOX(hscale_box), hscale, TRUE, TRUE, 5 );
-    gtk_widget_show( hscale );
     gtk_box_pack_start( GTK_BOX(window->paned), hscale_box, FALSE, FALSE, 5 );
+#else
+    gtk_box_append(GTK_BOX(hscale_box), hscale_label);
+    gtk_box_append(GTK_BOX(hscale_box), hscale);
+    gtk_box_append(GTK_BOX(window->paned), hscale_box);
+#endif
+    gtk_widget_show( hscale_label );
+    gtk_widget_show( hscale );
     gtk_widget_show( hscale_box );
 
     trackbar->maxval = count;
@@ -1744,10 +1935,18 @@ static void icvShowSaveAsDialog(GtkWidget* widget, CvWindow* window)
     GtkWidget* dialog = gtk_file_chooser_dialog_new("Save As...",
                       GTK_WINDOW(widget),
                       GTK_FILE_CHOOSER_ACTION_SAVE,
+#if (GTK_MAJOR_VERSION <= 3)
                       GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
                       GTK_STOCK_SAVE, GTK_RESPONSE_ACCEPT,
-                      NULL);
+                      NULL
+#else
+                      "_Save",
+                      "_Cancel"
+#endif
+                      );
+#if (GTK_MAJOR_VERSION <= 3)
     gtk_file_chooser_set_do_overwrite_confirmation(GTK_FILE_CHOOSER(dialog), TRUE);
+#endif
 
     cv::String sname = gtk_window_get_title(GTK_WINDOW(window->frame));
     sname = sname.substr(sname.find_last_of("\\/") + 1) + ".png";
@@ -1780,6 +1979,8 @@ static void icvShowSaveAsDialog(GtkWidget* widget, CvWindow* window)
     gtk_file_chooser_set_filter(GTK_FILE_CHOOSER(dialog), filter_images);
 
     cv::String filename;
+
+#if (GTK_MAJOR_VERSION <= 3)
     if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT)
     {
         char* fname = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
@@ -1787,6 +1988,10 @@ static void icvShowSaveAsDialog(GtkWidget* widget, CvWindow* window)
         g_free(fname);
     }
     gtk_widget_destroy(dialog);
+#else
+    g_signal_connect(dialog, "response", G_CALLBACK(cvImageWidget_response), &filename);
+    gtk_native_dialog_show(GTK_NATIVE_DIALOG(dialog));
+#endif
 
     if (!filename.empty())
     {
@@ -1796,7 +2001,7 @@ static void icvShowSaveAsDialog(GtkWidget* widget, CvWindow* window)
     }
 }
 
-#if defined(GTK_VERSION2) && !defined (GDK_KEY_Escape)
+#if (GTK_MAJOR_VERSION == 2) && !defined (GDK_KEY_Escape)
 #define GDK_KEY_Escape GDK_Escape
 #define GDK_KEY_Return GDK_Return
 #define GDK_KEY_Linefeed GDK_Linefeed
@@ -1805,11 +2010,25 @@ static void icvShowSaveAsDialog(GtkWidget* widget, CvWindow* window)
 #define GDK_KEY_S GDK_S
 #endif //GDK_KEY_Escape
 
+#if (GTK_MAJOR_VERSION <= 3)
 static gboolean icvOnKeyPress(GtkWidget* widget, GdkEventKey* event, gpointer user_data)
+#else
+static gboolean icvOnKeyPress(GtkWidget* widget, GdkEvent* gdk_event, gpointer user_data)
+#endif
 {
     int code = 0;
+    guint keyval;
+#if (GTK_MAJOR_VERSION <= 3)
+    guint state;
+    keyval = event->keyval;
+    state = event->state;
+#else
+    GdkModifierType state;
+    keyval = gdk_key_event_get_keyval(gdk_event);
+    state = gdk_event_get_modifier_state(gdk_event);
+#endif
 
-    if ( BIT_ALLIN(event->state, GDK_CONTROL_MASK) && (event->keyval == GDK_KEY_s || event->keyval == GDK_KEY_S))
+    if ( BIT_ALLIN(state, GDK_CONTROL_MASK) && (keyval == GDK_KEY_s || keyval == GDK_KEY_S))
     {
         try
         {
@@ -1821,7 +2040,7 @@ static gboolean icvOnKeyPress(GtkWidget* widget, GdkEventKey* event, gpointer us
         }
     }
 
-    switch( event->keyval )
+    switch( keyval )
     {
     case GDK_KEY_Escape:
         code = 27;
@@ -1834,10 +2053,10 @@ static gboolean icvOnKeyPress(GtkWidget* widget, GdkEventKey* event, gpointer us
         code = '\t';
     break;
     default:
-        code = event->keyval;
+        code = keyval;
     }
 
-    code |= event->state << 16;
+    code |= state << 16;
 
     if(thread_started)
     {
@@ -1913,51 +2132,94 @@ static gboolean icvOnMouse( GtkWidget *widget, GdkEvent *event, gpointer user_da
     int cv_event = -1, state = 0, flags = 0;
     CvImageWidget * image_widget = CV_IMAGE_WIDGET( widget );
 
-    if( event->type == GDK_MOTION_NOTIFY )
+    GdkEventType event_type;
+#if (GTK_MAJOR_VERSION >= 4)
+    event_type = gdk_event_get_event_type(event);
+#else
+    event_type = event->type;
+#endif
+
+    if( event_type == GDK_MOTION_NOTIFY )
     {
-        GdkEventMotion* event_motion = (GdkEventMotion*)event;
 
         cv_event = CV_EVENT_MOUSEMOVE;
+#if (GTK_MAJOR_VERSION >= 4)
+        GdkMotionEvent* event_motion = (GdkMotionEvent*)event;
+        double x, y;
+        gdk_event_get_position((GdkEvent*)event_motion, &x, &y);
+        pt32f.x = cvFloor(x);
+        pt32f.y = cvFloor(y);
+        state = gdk_event_get_modifier_state((GdkEvent*)event_motion);
+#else
+        GdkEventMotion* event_motion = (GdkEventMotion*)event;
         pt32f.x = cvFloor(event_motion->x);
         pt32f.y = cvFloor(event_motion->y);
         state = event_motion->state;
+#endif
     }
-    else if( event->type == GDK_BUTTON_PRESS ||
-             event->type == GDK_BUTTON_RELEASE ||
-             event->type == GDK_2BUTTON_PRESS )
+    else if( event_type == GDK_BUTTON_PRESS ||
+             event_type == GDK_BUTTON_RELEASE
+#if (GTK_MAJOR_VERSION <= 3)
+             || event_type == GDK_2BUTTON_PRESS
+#endif
+             )
     {
+#if (GTK_MAJOR_VERSION >= 4)
+        GdkButtonEvent* event_button = (GdkButtonEvent*)event;
+        double x, y;
+        gdk_event_get_position((GdkEvent*)event_button, &x, &y);
+        pt32f.x = cvFloor(x);
+        pt32f.y = cvFloor(y);
+        guint button = gdk_button_event_get_button((GdkEvent*)event_button);
+        event_type = gdk_event_get_event_type((GdkEvent*)event_button);
+#else
         GdkEventButton* event_button = (GdkEventButton*)event;
         pt32f.x = cvFloor(event_button->x);
         pt32f.y = cvFloor(event_button->y);
-
-
-        if( event_button->type == GDK_BUTTON_PRESS )
+        guint button = event_button->button;
+        event_type = event_button->type;
+#endif
+        if( event_type == GDK_BUTTON_PRESS )
         {
-            cv_event = event_button->button == 1 ? CV_EVENT_LBUTTONDOWN :
-                       event_button->button == 2 ? CV_EVENT_MBUTTONDOWN :
-                       event_button->button == 3 ? CV_EVENT_RBUTTONDOWN : 0;
+            cv_event = button == 1 ? CV_EVENT_LBUTTONDOWN :
+                       button == 2 ? CV_EVENT_MBUTTONDOWN :
+                       button == 3 ? CV_EVENT_RBUTTONDOWN : 0;
         }
-        else if( event_button->type == GDK_BUTTON_RELEASE )
+        else if( event_type == GDK_BUTTON_RELEASE )
         {
-            cv_event = event_button->button == 1 ? CV_EVENT_LBUTTONUP :
-                       event_button->button == 2 ? CV_EVENT_MBUTTONUP :
-                       event_button->button == 3 ? CV_EVENT_RBUTTONUP : 0;
+            cv_event = button == 1 ? CV_EVENT_LBUTTONUP :
+                       button == 2 ? CV_EVENT_MBUTTONUP :
+                       button == 3 ? CV_EVENT_RBUTTONUP : 0;
         }
+#if (GTK_MAJOR_VERSION <= 3)
         else if( event_button->type == GDK_2BUTTON_PRESS )
         {
             cv_event = event_button->button == 1 ? CV_EVENT_LBUTTONDBLCLK :
                        event_button->button == 2 ? CV_EVENT_MBUTTONDBLCLK :
                        event_button->button == 3 ? CV_EVENT_RBUTTONDBLCLK : 0;
         }
+#endif
+#if (GTK_MAJOR_VERSION >= 4)
+        state = gdk_event_get_modifier_state((GdkEvent*)event_button);
+#else
         state = event_button->state;
+#endif
     }
-    else if( event->type == GDK_SCROLL )
+    else if( event_type == GDK_SCROLL )
     {
+#if (GTK_MAJOR_VERSION >= 4)
+        GdkScrollEvent* event_scroll = (GdkScrollEvent*)event;
+        double x, y;
+        gdk_event_get_position((GdkEvent*)event_scroll, &x, &y);
+        pt32f.x = cvFloor(x);
+        pt32f.y = cvFloor(y);
+#else
         GdkEventScroll* event_scroll = (GdkEventScroll*)event;
         pt32f.x = cvFloor(event_scroll->x);
         pt32f.y = cvFloor(event_scroll->y);
+#endif
 
-#if defined(GTK_VERSION3_4)
+#if (GTK_MAJOR_VERSION == 3) && (GTK_MINOR_VERSION >= 4)
         // NOTE: in current implementation doesn't possible to put into callback function delta_x and delta_y separately
         double delta = (event->scroll.delta_x + event->scroll.delta_y);
         cv_event   = (event->scroll.delta_x==0) ? CV_EVENT_MOUSEWHEEL : CV_EVENT_MOUSEHWHEEL;
@@ -1965,10 +2227,16 @@ static gboolean icvOnMouse( GtkWidget *widget, GdkEvent *event, gpointer user_da
         cv_event = CV_EVENT_MOUSEWHEEL;
 #endif //GTK_VERSION3_4
 
+#if (GTK_MAJOR_VERSION >= 4)
+        state = gdk_event_get_modifier_state((GdkEvent*)event_scroll);
+
+        switch(gdk_scroll_event_get_direction((GdkEvent*)event_scroll)) {
+#else
         state    = event->scroll.state;
 
         switch(event->scroll.direction) {
-#if defined(GTK_VERSION3_4)
+#endif
+#if (GTK_MAJOR_VERSION == 3) && (GTK_MINOR_VERSION >= 4)
         case GDK_SCROLL_SMOOTH: flags |= (((int)delta << 16));
             break;
 #endif //GTK_VERSION3_4
@@ -2019,9 +2287,13 @@ static gboolean icvOnMouse( GtkWidget *widget, GdkEvent *event, gpointer user_da
             flags |=
                 BIT_MAP(state, GDK_SHIFT_MASK,   CV_EVENT_FLAG_SHIFTKEY) |
                 BIT_MAP(state, GDK_CONTROL_MASK, CV_EVENT_FLAG_CTRLKEY)  |
-                BIT_MAP(state, GDK_MOD1_MASK,    CV_EVENT_FLAG_ALTKEY)   |
+#if (GTK_MAJOR_VERSION <= 3)
+                BIT_MAP(state, GDK_MOD1_MASK,    CV_EVENT_FLAG_ALTKEY) |
                 BIT_MAP(state, GDK_MOD2_MASK,    CV_EVENT_FLAG_ALTKEY);
-            window->on_mouse( cv_event, pt.x, pt.y, flags, window->on_mouse_param );
+#else
+                BIT_MAP(state, GDK_ALT_MASK,    CV_EVENT_FLAG_ALTKEY);
+#endif
+                window->on_mouse( cv_event, pt.x, pt.y, flags, window->on_mouse_param );
         }
     }
 
@@ -2077,8 +2349,13 @@ CV_IMPL int cvWaitKey( int delay )
         if( delay > 0 )
             timer = g_timeout_add( delay, icvAlarm, &expired );
         last_key = -1;
+    #if (GTK_MAJOR_VERSION <= 3)
         while( gtk_main_iteration_do(TRUE) && last_key < 0 && !expired && (delay > 0 || !getGTKWindows().empty()))
             ;
+    #else
+        while( g_main_context_iteration (NULL, TRUE) && last_key < 0 && !expired && (delay > 0 || !getGTKWindows().empty()))
+            ;
+    #endif
 
         if( delay > 0 && !expired )
             g_source_remove(timer);
@@ -2197,9 +2474,13 @@ public:
 
     void move(int x, int y) CV_OVERRIDE
     {
+// TODO: Decide if not_implemented exception is neede here
+// GTK issue: https://gitlab.gnome.org/GNOME/gtk/-/issues/5204
+#if (GTK_MAJOR_VERSION <= 3)
         auto window = window_.lock();
         CV_Assert(window);
         gtk_window_move(GTK_WINDOW(window->frame), x, y);
+#endif
     }
 
     Rect getImageRect() const CV_OVERRIDE

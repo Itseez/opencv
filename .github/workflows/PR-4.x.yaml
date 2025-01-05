@@ -22,7 +22,7 @@ jobs:
     uses: opencv/ci-gha-workflow/.github/workflows/OCV-PR-4.x-U22.yaml@main
 
   Ubuntu2404-x64:
-    uses: opencv/ci-gha-workflow/.github/workflows/OCV-PR-4.x-U24.yaml@main
+    uses: opencv/ci-gha-workflow/.github/workflows/OCV-PR-4.x-U24.yaml@as/gtk-4
 
   Ubuntu2004-x64-CUDA:
     if: "${{ contains(github.event.pull_request.labels.*.name, 'category: dnn') }} || ${{ contains(github.event.pull_request.labels.*.name, 'category: dnn (onnx)') }}"
