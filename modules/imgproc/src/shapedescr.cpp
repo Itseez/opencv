@@ -862,6 +862,123 @@ cv::RotatedRect cv::fitEllipseDirect( InputArray _points )
     return box;
 }
 
+namespace cv
+{
+// @misc{Chatfield2017,
+//   author = {Chatfield, Carl},
+//   title = {A Simple Method for Distance to Ellipse},
+//   year = {2017},
+//   publisher = {GitHub},
+//   howpublished = {\url{https://blog.chatfield.io/simple-method-for-distance-to-ellipse/}},
+// }
+// https://github.com/0xfaded/ellipse_demo/blob/master/ellipse_trig_free.py
+static void solveFast(float semi_major, float semi_minor, const cv::Point2f& pt, cv::Point2f& closest_pt)
+{
+    float px = std::abs(pt.x);
+    float py = std::abs(pt.y);
+
+    float tx = 0.707f;
+    float ty = 0.707f;
+
+    float a = semi_major;
+    float b = semi_minor;
+
+    for (int iter = 0; iter < 3; iter++)
+    {
+        float x = a * tx;
+        float y = b * ty;
+
+        float ex = (a*a - b*b) * tx*tx*tx / a;
+        float ey = (b*b - a*a) * ty*ty*ty / b;
+
+        float rx = x - ex;
+        float ry = y - ey;
+
+        float qx = px - ex;
+        float qy = py - ey;
+
+        float r = std::hypotf(rx, ry);
+        float q = std::hypotf(qx, qy);
+
+        tx = std::min(1.0f, std::max(0.0f, (qx * r / q + ex) / a));
+        ty = std::min(1.0f, std::max(0.0f, (qy * r / q + ey) / b));
+        float t = std::hypotf(tx, ty);
+        tx /= t;
+        ty /= t;
+    }
+
+    closest_pt.x = std::copysign(a * tx, pt.x);
+    closest_pt.y = std::copysign(b * ty, pt.y);
+}
+} // namespace cv
+
+void cv::getClosestEllipsePoints( const RotatedRect& ellipse_params, InputArray _points, OutputArray closest_pts )
+{
+    CV_INSTRUMENT_REGION();
+
+    Mat points = _points.getMat();
+    int n = points.checkVector(2);
+    int depth = points.depth();
+    CV_Assert(depth == CV_32F || depth == CV_32S);
+    CV_Assert(n > 0);
+
+    bool is_float = depth == CV_32F;
+    const Point* ptsi = points.ptr<Point>();
+    const Point2f* ptsf = points.ptr<Point2f>();
+
+    float semi_major = ellipse_params.size.width / 2.0f;
+    float semi_minor = ellipse_params.size.height / 2.0f;
+    float angle_deg = ellipse_params.angle;
+    if (semi_major < semi_minor)
+    {
+        std::swap(semi_major, semi_minor);
+        angle_deg += 90;
+    }
+
+    Matx23f align_T_ori_f32;
+    float theta_rad = static_cast<float>(angle_deg * M_PI / 180);
+    float co = std::cos(theta_rad);
+    float si = std::sin(theta_rad);
+    float shift_x = ellipse_params.center.x;
+    float shift_y = ellipse_params.center.y;
+
+    align_T_ori_f32(0,0) = co;
+    align_T_ori_f32(0,1) = si;
+    align_T_ori_f32(0,2) = -co*shift_x - si*shift_y;
+    align_T_ori_f32(1,0) = -si;
+    align_T_ori_f32(1,1) = co;
+    align_T_ori_f32(1,2) = si*shift_x - co*shift_y;
+
+    Matx23f ori_T_align_f32;
+    ori_T_align_f32(0,0) = co;
+    ori_T_align_f32(0,1) = -si;
+    ori_T_align_f32(0,2) = shift_x;
+    ori_T_align_f32(1,0) = si;
+    ori_T_align_f32(1,1) = co;
+    ori_T_align_f32(1,2) = shift_y;
+
+    std::vector<Point2f> closest_pts_list;
+    for (int i = 0; i < n; i++)
+    {
+        Point2f p = is_float ? ptsf[i] : Point2f((float)ptsi[i].x, (float)ptsi[i].y);
+        Matx31f pmat;
+        pmat(0,0) = p.x;
+        pmat(1,0) = p.y;
+        pmat(2,0) = 1;
+
+        Mat X_align = Mat(align_T_ori_f32) * pmat;
+        Point2f closest_pt;
+        solveFast(semi_major, semi_minor, Point2f(X_align.at<float>(0,0), X_align.at<float>(1,0)), closest_pt);
+
+        pmat(0,0) = closest_pt.x;
+        pmat(1,0) = closest_pt.y;
+        Mat closest_pt_ori = Mat(ori_T_align_f32) * pmat;
+        closest_pts_list.push_back(Point2f(closest_pt_ori.at<float>(0,0), closest_pt_ori.at<float>(1,0)));
+    }
+
+    cv::Mat(closest_pts_list).convertTo(closest_pts, CV_32F);
+}
+
 ////////////////////////////////////////////// C API ///////////////////////////////////////////
 
 CV_IMPL int

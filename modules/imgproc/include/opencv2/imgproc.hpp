@@ -118,7 +118,7 @@ This module offers a comprehensive suite of image processing functions, enabling
     coordinates needs to be retrieved. In the simplest case, the coordinates can be just rounded to the
     nearest integer coordinates and the corresponding pixel can be used. This is called a
     nearest-neighbor interpolation. However, a better result can be achieved by using more
-    sophisticated [interpolation methods](http://en.wikipedia.org/wiki/Multivariate_interpolation) ,
+    sophisticated [interpolation methods](https://en.wikipedia.org/wiki/Multivariate_interpolation) ,
     where a polynomial function is fit into some neighborhood of the computed pixel \f$(f_x(x,y),
     f_y(x,y))\f$, and then the value of the polynomial at \f$(f_x(x,y), f_y(x,y))\f$ is taken as the
     interpolated pixel value. In OpenCV, you can choose between several interpolation methods. See
@@ -1466,7 +1466,7 @@ CV_EXPORTS_W void getDerivKernels( OutputArray kx, OutputArray ky,
 /** @brief Returns Gabor filter coefficients.
 
 For more details about gabor filter equations and parameters, see: [Gabor
-Filter](http://en.wikipedia.org/wiki/Gabor_filter).
+Filter](https://en.wikipedia.org/wiki/Gabor_filter).
 
 @param ksize Size of the filter returned.
 @param sigma Standard deviation of the gaussian envelope.
@@ -1548,7 +1548,7 @@ CV_EXPORTS_W void GaussianBlur( InputArray src, OutputArray dst, Size ksize,
 /** @brief Applies the bilateral filter to an image.
 
 The function applies bilateral filtering to the input image, as described in
-http://www.dai.ed.ac.uk/CVonline/LOCAL_COPIES/MANDUCHI1/Bilateral_Filtering.html
+https://homepages.inf.ed.ac.uk/rbf/CVonline/LOCAL_COPIES/MANDUCHI1/Bilateral_Filtering.html
 bilateralFilter can reduce unwanted noise very well while keeping edges fairly sharp. However, it is
 very slow compared to most filters.
 
@@ -1658,7 +1658,7 @@ stackBlur can generate similar results as Gaussian blur, and the time consumptio
 It creates a kind of moving stack of colors whilst scanning through the image. Thereby it just has to add one new block of color to the right side
 of the stack and remove the leftmost color. The remaining colors on the topmost layer of the stack are either added on or reduced by one,
 depending on if they are on the right or on the left side of the stack. The only supported borderType is BORDER_REPLICATE.
-Original paper was proposed by Mario Klingemann, which can be found http://underdestruction.com/2004/02/25/stackblur-2004.
+Original paper was proposed by Mario Klingemann, which can be found https://underdestruction.com/2004/02/25/stackblur-2004.
 
 @param src input image. The number of channels can be arbitrary, but the depth should be one of
 CV_8U, CV_16U, CV_16S or CV_32F.
@@ -1873,7 +1873,7 @@ Check @ref tutorial_canny_detector "the corresponding tutorial" for more details
 The function finds edges in the input image and marks them in the output map edges using the
 Canny algorithm. The smallest value between threshold1 and threshold2 is used for edge linking. The
 largest value is used to find initial segments of strong edges. See
-<http://en.wikipedia.org/wiki/Canny_edge_detector>
+<https://en.wikipedia.org/wiki/Canny_edge_detector>
 
 @param image 8-bit input image.
 @param edges output edge map; single channels 8-bit image, which has the same size as image .
@@ -2142,7 +2142,7 @@ An example using the Hough line detector
 /** @brief Finds lines in a binary image using the standard Hough transform.
 
 The function implements the standard or standard multi-scale Hough transform algorithm for line
-detection. See <http://homepages.inf.ed.ac.uk/rbf/HIPR2/hough.htm> for a good explanation of Hough
+detection. See <https://homepages.inf.ed.ac.uk/rbf/HIPR2/hough.htm> for a good explanation of Hough
 transform.
 
 @param image 8-bit, single-channel binary source image. The image may be modified by the function.
@@ -2985,13 +2985,13 @@ CV_EXPORTS_W void accumulateWeighted( InputArray src, InputOutputArray dst,
 
 The operation takes advantage of the Fourier shift theorem for detecting the translational shift in
 the frequency domain. It can be used for fast image registration as well as motion estimation. For
-more information please see <http://en.wikipedia.org/wiki/Phase_correlation>
+more information please see <https://en.wikipedia.org/wiki/Phase_correlation>
 
 Calculates the cross-power spectrum of two supplied source arrays. The arrays are padded if needed
 with getOptimalDFTSize.
 
 The function performs the following equations:
-- First it applies a Hanning window (see <http://en.wikipedia.org/wiki/Hann_function>) to each
+- First it applies a Hanning window (see <https://en.wikipedia.org/wiki/Hann_function>) to each
 image to remove possible edge effects. This window is cached until the array size changes to speed
 up processing time.
 - Next it computes the forward DFTs of each source array:
@@ -3021,7 +3021,7 @@ CV_EXPORTS_W Point2d phaseCorrelate(InputArray src1, InputArray src2,
 
 /** @brief This function computes a Hanning window coefficients in two dimensions.
 
-See (http://en.wikipedia.org/wiki/Hann_function) and (http://en.wikipedia.org/wiki/Window_function)
+See (https://en.wikipedia.org/wiki/Hann_function) and (https://en.wikipedia.org/wiki/Window_function)
 for more information.
 
 An example is shown below:
@@ -3486,7 +3486,7 @@ An example using the GrabCut algorithm
 
 /** @brief Runs the GrabCut algorithm.
 
-The function implements the [GrabCut image segmentation algorithm](http://en.wikipedia.org/wiki/GrabCut).
+The function implements the [GrabCut image segmentation algorithm](https://en.wikipedia.org/wiki/GrabCut).
 
 @param img Input 8-bit 3-channel image.
 @param mask Input/output 8-bit single-channel mask. The mask is initialized by the function when
@@ -3813,7 +3813,7 @@ CV_EXPORTS_W Moments moments( InputArray array, bool binaryImage = false );
 /** @brief Calculates seven Hu invariants.
 
 The function calculates seven Hu invariants (introduced in @cite Hu62; see also
-<http://en.wikipedia.org/wiki/Image_moment>) defined as:
+<https://en.wikipedia.org/wiki/Image_moment>) defined as:
 
 \f[\begin{array}{l} hu[0]= \eta _{20}+ \eta _{02} \\ hu[1]=( \eta _{20}- \eta _{02})^{2}+4 \eta _{11}^{2} \\ hu[2]=( \eta _{30}-3 \eta _{12})^{2}+ (3 \eta _{21}- \eta _{03})^{2} \\ hu[3]=( \eta _{30}+ \eta _{12})^{2}+ ( \eta _{21}+ \eta _{03})^{2} \\ hu[4]=( \eta _{30}-3 \eta _{12})( \eta _{30}+ \eta _{12})[( \eta _{30}+ \eta _{12})^{2}-3( \eta _{21}+ \eta _{03})^{2}]+(3 \eta _{21}- \eta _{03})( \eta _{21}+ \eta _{03})[3( \eta _{30}+ \eta _{12})^{2}-( \eta _{21}+ \eta _{03})^{2}] \\ hu[5]=( \eta _{20}- \eta _{02})[( \eta _{30}+ \eta _{12})^{2}- ( \eta _{21}+ \eta _{03})^{2}]+4 \eta _{11}( \eta _{30}+ \eta _{12})( \eta _{21}+ \eta _{03}) \\ hu[6]=(3 \eta _{21}- \eta _{03})( \eta _{21}+ \eta _{03})[3( \eta _{30}+ \eta _{12})^{2}-( \eta _{21}+ \eta _{03})^{2}]-( \eta _{30}-3 \eta _{12})( \eta _{21}+ \eta _{03})[3( \eta _{30}+ \eta _{12})^{2}-( \eta _{21}+ \eta _{03})^{2}] \\ \end{array}\f]
 
@@ -4051,7 +4051,7 @@ CV_EXPORTS_W void findContoursLinkRuns(InputArray image, OutputArrayOfArrays con
 
 The function cv::approxPolyDP approximates a curve or a polygon with another curve/polygon with less
 vertices so that the distance between them is less or equal to the specified precision. It uses the
-Douglas-Peucker algorithm <http://en.wikipedia.org/wiki/Ramer-Douglas-Peucker_algorithm>
+Douglas-Peucker algorithm <https://en.wikipedia.org/wiki/Ramer-Douglas-Peucker_algorithm>
 
 @param curve Input vector of a 2D point stored in std::vector or Mat
 @param approxCurve Result of the approximation. The type should match the type of the input curve.
@@ -4299,6 +4299,9 @@ ellipse/rotatedRect data contains negative indices, due to the data points being
 border of the containing Mat element.
 
 @param points Input 2D point set, stored in std::vector\<\> or Mat
+
+@note Input point types are @ref Point2i or @ref Point2f and at least 5 points are required.
+@note @ref getClosestEllipsePoints function can be used to compute the ellipse fitting error.
  */
 CV_EXPORTS_W RotatedRect fitEllipse( InputArray points );
 
@@ -4336,6 +4339,9 @@ CV_EXPORTS_W RotatedRect fitEllipse( InputArray points );
  \f}
 
  @param points Input 2D point set, stored in std::vector\<\> or Mat
+
+ @note Input point types are @ref Point2i or @ref Point2f and at least 5 points are required.
+ @note @ref getClosestEllipsePoints function can be used to compute the ellipse fitting error.
  */
 CV_EXPORTS_W RotatedRect fitEllipseAMS( InputArray points );
 
@@ -4381,8 +4387,25 @@ CV_EXPORTS_W RotatedRect fitEllipseAMS( InputArray points );
  The scaling factor guarantees that  \f$A^T C A =1\f$.
 
  @param points Input 2D point set, stored in std::vector\<\> or Mat
+
+ @note Input point types are @ref Point2i or @ref Point2f and at least 5 points are required.
+ @note @ref getClosestEllipsePoints function can be used to compute the ellipse fitting error.
  */
 CV_EXPORTS_W RotatedRect fitEllipseDirect( InputArray points );
+
+/** @brief Compute for each 2d point the nearest 2d point located on a given ellipse.
+
+ The function computes the nearest 2d location on a given ellipse for a vector of 2d points and is based on @cite Chatfield2017 code.
+ This function can be used to compute for instance the ellipse fitting error.
+
+ @param ellipse_params Ellipse parameters
+ @param points Input 2d points
+ @param closest_pts For each 2d point, their corresponding closest 2d point located on a given ellipse
+
+ @note Input point types are @ref Point2i or @ref Point2f
+ @see fitEllipse, fitEllipseAMS, fitEllipseDirect
+ */
+CV_EXPORTS_W void getClosestEllipsePoints( const RotatedRect& ellipse_params, InputArray points, OutputArray closest_pts );
 
 /** @brief Fits a line to a 2D or 3D point set.
 
@@ -4402,7 +4425,7 @@ of the following:
 - DIST_HUBER
 \f[\rho (r) =  \fork{r^2/2}{if \(r < C\)}{C \cdot (r-C/2)}{otherwise} \quad \text{where} \quad C=1.345\f]
 
-The algorithm is based on the M-estimator ( <http://en.wikipedia.org/wiki/M-estimator> ) technique
+The algorithm is based on the M-estimator ( <https://en.wikipedia.org/wiki/M-estimator> ) technique
 that iteratively fits the line using the weighted least-squares algorithm. After each iteration the
 weights \f$w_i\f$ are adjusted to be inversely proportional to \f$\rho(r_i)\f$ .
 
