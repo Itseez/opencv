@@ -58,7 +58,7 @@ endif()
 add_custom_command(
   OUTPUT ${bindings_cpp} "${OPENCV_DEPHELPER}/gen_opencv_js_source"
   COMMAND
-      ${PYTHON_DEFAULT_EXECUTABLE}
+      ${PYTHON3_EXECUTABLE}
       "${CMAKE_CURRENT_SOURCE_DIR}/embindgen.py"
       "${scripts_hdr_parser}"
       "${bindings_cpp}"

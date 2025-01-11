@@ -268,9 +268,9 @@ if(DOXYGEN_FOUND)
     COMMENT "Generate Doxygen documentation"
   )
 
-  if(NOT DEFINED HAVE_PYTHON_BS4 AND PYTHON_DEFAULT_EXECUTABLE)
+  if(NOT DEFINED HAVE_PYTHON_BS4 AND PYTHON3INTERP_FOUND)
     # Documentation post-processing tool requires BuautifulSoup Python package
-    execute_process(COMMAND "${PYTHON_DEFAULT_EXECUTABLE}" -c "import bs4; from bs4 import BeautifulSoup; print(bs4.__version__)"
+    execute_process(COMMAND "${PYTHON3_EXECUTABLE}" -c "import bs4; from bs4 import BeautifulSoup; print(bs4.__version__)"
                     RESULT_VARIABLE _result
                     OUTPUT_VARIABLE _bs4_version
                     OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -283,12 +283,12 @@ if(DOXYGEN_FOUND)
     endif()
   endif()
 
-  if(PYTHON_DEFAULT_EXECUTABLE
+  if(PYTHON3INTERP_FOUND
       AND HAVE_PYTHON_BS4
       AND OPENCV_PYTHON_SIGNATURES_FILE
       AND TARGET gen_opencv_python_source)
     add_custom_target(doxygen_python
-      COMMAND ${PYTHON_DEFAULT_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/tools/add_signatures.py" "${CMAKE_CURRENT_BINARY_DIR}/doxygen/html/" "${OPENCV_PYTHON_SIGNATURES_FILE}" "python"
+      COMMAND ${PYTHON3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/tools/add_signatures.py" "${CMAKE_CURRENT_BINARY_DIR}/doxygen/html/" "${OPENCV_PYTHON_SIGNATURES_FILE}" "python"
       DEPENDS doxygen_cpp gen_opencv_python_source
       COMMENT "Inject Python signatures into documentation"
     )

@@ -79,7 +79,7 @@ file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/headers.txt" "${opencv_hdrs_}")
 file(GLOB_RECURSE typing_stubs_generation_files "${PYTHON_SOURCE_DIR}/src2/typing_stubs_generation/*.py")
 add_custom_command(
     OUTPUT ${cv2_generated_files}
-    COMMAND "${PYTHON_DEFAULT_EXECUTABLE}" "${PYTHON_SOURCE_DIR}/src2/gen2.py" "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/headers.txt"
+    COMMAND "${PYTHON3_EXECUTABLE}" "${PYTHON_SOURCE_DIR}/src2/gen2.py" "${CMAKE_CURRENT_BINARY_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/headers.txt"
     DEPENDS "${PYTHON_SOURCE_DIR}/src2/gen2.py"
             "${PYTHON_SOURCE_DIR}/src2/hdr_parser.py"
             "${typing_stubs_generation_files}"

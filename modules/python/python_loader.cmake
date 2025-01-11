@@ -131,15 +131,15 @@ if(NOT "${OPENCV_PYTHON_EXTRA_MODULES_PATH}" STREQUAL "")
   endforeach()
 endif()
 
-if(${PYTHON}_VERSION_STRING VERSION_GREATER "3.6" AND PYTHON_DEFAULT_VERSION VERSION_GREATER "3.6")
+if(${PYTHON}_VERSION_STRING VERSION_GREATER "3.6")
   add_custom_target(copy_opencv_typing_stubs)
   # Copy all generated stub files to python_loader directory only if
-  # generation succeeds, this behvoir can't be achieved with default
+  # generation succeeds, this behavior can't be achieved with default
   # CMake constructions, because failed generation produces a warning instead of
   # halts on hard error.
   add_custom_command(
-    TARGET copy_opencv_typing_stubs
-    COMMAND ${PYTHON_DEFAULT_EXECUTABLE} ${PYTHON_SOURCE_DIR}/src2/copy_typings_stubs_on_success.py
+    TARGET copy_opencv_typing_stubs POST_BUILD
+    COMMAND ${PYTHON3_EXECUTABLE} ${PYTHON_SOURCE_DIR}/src2/copy_typings_stubs_on_success.py
             --stubs_dir ${OPENCV_PYTHON_BINDINGS_DIR}/cv2
             --output_dir ${__loader_path}/cv2
   )

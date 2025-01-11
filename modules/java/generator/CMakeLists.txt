@@ -86,7 +86,7 @@ set(java_generated_files
 
 add_custom_command(
     OUTPUT ${java_generated_files}
-    COMMAND ${PYTHON_DEFAULT_EXECUTABLE} "${JAVA_SOURCE_DIR}/generator/gen_java.py" -p "${JAVA_SOURCE_DIR}/../python/src2/gen2.py" -c "${CONFIG_FILE}"
+    COMMAND ${PYTHON3_EXECUTABLE} "${JAVA_SOURCE_DIR}/generator/gen_java.py" -p "${JAVA_SOURCE_DIR}/../python/src2/gen2.py" -c "${CONFIG_FILE}"
     COMMAND ${CMAKE_COMMAND} -E touch "${OPENCV_DEPHELPER}/gen_opencv_java_source"
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
     DEPENDS "${JAVA_SOURCE_DIR}/generator/gen_java.py"

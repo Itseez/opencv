@@ -22,12 +22,12 @@ find_path(EMSCRIPTEN_INCLUDE_DIR
           PATH_SUFFIXES system/include include
           DOC "Location of Emscripten SDK")
 
-if(NOT EMSCRIPTEN_INCLUDE_DIR OR NOT PYTHON_DEFAULT_AVAILABLE)
+if(NOT EMSCRIPTEN_INCLUDE_DIR OR NOT PYTHON3INTERP_FOUND)
   set(DISABLE_MSG "Module 'js' disabled because the following dependencies are not found:")
   if(NOT EMSCRIPTEN_INCLUDE_DIR)
     set(DISABLE_MSG "${DISABLE_MSG} Emscripten")
   endif()
-  if(NOT PYTHON_DEFAULT_AVAILABLE)
+  if(NOT PYTHON3INTERP_FOUND)
     set(DISABLE_MSG "${DISABLE_MSG} Python")
   endif()
   message(STATUS ${DISABLE_MSG})
@@ -81,7 +81,7 @@ set(OCV_JS_PATH "${OpenCV_BINARY_DIR}/bin/${OPENCV_JS}")
 
 add_custom_command(
    OUTPUT ${OCV_JS_PATH}
-   COMMAND ${PYTHON_DEFAULT_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/src/make_umd.py" ${MODULE_JS_PATH} "${OCV_JS_PATH}"
+   COMMAND ${PYTHON3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/src/make_umd.py" ${MODULE_JS_PATH} "${OCV_JS_PATH}"
    DEPENDS ${the_module}
    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/make_umd.py")
 
