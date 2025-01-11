@@ -42,7 +42,6 @@
 
 #include "onnx_graph_simplifier.hpp"
 #endif
-
 namespace cv {
 namespace dnn {
 CV__DNN_INLINE_NS_BEGIN
@@ -218,6 +217,7 @@ protected:
     void parseTranspose            (LayerParams& layerParams, const opencv_onnx::NodeProto& node_proto);
     void parseUnsqueeze            (LayerParams& layerParams, const opencv_onnx::NodeProto& node_proto);
     void parseUpsample             (LayerParams& layerParams, const opencv_onnx::NodeProto& node_proto);
+    void parseTopK2                 (LayerParams& layerParams, const opencv_onnx::NodeProto& node_proto);
 
     // Domain: com.microsoft
     // URL: https://github.com/microsoft/onnxruntime/blob/master/docs/ContribOperators.md
@@ -1667,6 +1667,11 @@ void ONNXImporter2::parseDepthSpaceOps(LayerParams &layerParams, const opencv_on
     addLayer(layerParams, node_proto);
 }
 
+void ONNXImporter2::parseTopK2(LayerParams& layerParams, const opencv_onnx::NodeProto& node_proto) {
+    layerParams.type = "TopK2";
+    addLayer(layerParams, node_proto);
+}
+
 // Currently we only support range with all constant inputs
 void ONNXImporter2::parseRange(LayerParams& layerParams, const opencv_onnx::NodeProto& node_proto)
 {
@@ -2382,6 +2387,7 @@ void ONNXImporter2::buildDispatchMap_ONNX_AI(int opset_version)
     dispatch["Where"] = &ONNXImporter2::parseElementWise;
     dispatch["Range"] = &ONNXImporter2::parseRange;
     dispatch["Einsum"] = &ONNXImporter2::parseEinsum;
+    dispatch["TopK"] = &ONNXImporter2::parseTopK2;  // Add this line
 
     std::vector<std::string> simpleLayers {
         "Acos", "Acosh", "Asin", "Asinh", "Atan", "Atanh", "Ceil", "Celu", "Cos",

@@ -220,6 +220,7 @@ void initializeLayerFactory()
     CV_DNN_REGISTER_LAYER_CLASS(ScatterND,      ScatterNDLayer);
     CV_DNN_REGISTER_LAYER_CLASS(Tile,           TileLayer);
     CV_DNN_REGISTER_LAYER_CLASS(TopK,           TopKLayer);
+    CV_DNN_REGISTER_LAYER_CLASS(TopK2,          TopK2Layer);
 
     CV_DNN_REGISTER_LAYER_CLASS(Quantize,         QuantizeLayer);
     CV_DNN_REGISTER_LAYER_CLASS(Dequantize,       DequantizeLayer);
