@@ -507,7 +507,3 @@ TEST(Imgcodecs, imdecode_user_buffer)
 }
 
 }} // namespace
-
-#if defined(HAVE_OPENEXR) && defined(OPENCV_IMGCODECS_ENABLE_OPENEXR_TESTS)
-#include "test_exr.impl.hpp"
-#endif

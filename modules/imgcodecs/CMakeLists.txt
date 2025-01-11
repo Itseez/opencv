@@ -69,13 +69,6 @@ endif()
 if(HAVE_OPENEXR)
   include_directories(SYSTEM ${OPENEXR_INCLUDE_PATHS})
   list(APPEND GRFMT_LIBS ${OPENEXR_LIBRARIES})
-  if(OPENCV_IO_FORCE_OPENEXR
-      OR NOT BUILD_OPENEXR  # external OpenEXR versions are not disabled
-  )
-    add_definitions(-DOPENCV_IMGCODECS_USE_OPENEXR=1)
-  else()
-    message(STATUS "imgcodecs: OpenEXR codec is disabled in runtime. Details: https://github.com/opencv/opencv/issues/21326")
-  endif()
 endif()
 
 if(HAVE_PNG OR HAVE_TIFF OR HAVE_OPENEXR OR HAVE_SPNG)
@@ -186,9 +179,6 @@ endif()
 ocv_add_accuracy_tests()
 if(TARGET opencv_test_imgcodecs AND HAVE_JASPER AND "$ENV{OPENCV_IO_ENABLE_JASPER}")
   ocv_target_compile_definitions(opencv_test_imgcodecs PRIVATE OPENCV_IMGCODECS_ENABLE_JASPER_TESTS=1)
-endif()
-if(TARGET opencv_test_imgcodecs AND HAVE_OPENEXR AND "$ENV{OPENCV_IO_ENABLE_OPENEXR}")
-  ocv_target_compile_definitions(opencv_test_imgcodecs PRIVATE OPENCV_IMGCODECS_ENABLE_OPENEXR_TESTS=1)
 endif()
 if(TARGET opencv_test_imgcodecs AND ((HAVE_PNG AND NOT (PNG_VERSION_STRING VERSION_LESS "1.6.31")) OR HAVE_SPNG))
   # details: https://github.com/glennrp/libpng/commit/68cb0aaee3de6371b81a4613476d9b33e43e95b1

@@ -65,15 +65,6 @@ jasper                JasPer is a collection of software
                       https://github.com/jasper-software/jasper.git
                       for details and links to source code
 ------------------------------------------------------------------------------------
-openexr               OpenEXR is a high dynamic-range (HDR) image file format developed
-                      by Industrial Light & Magic for use in computer imaging applications.
-
-                      Copyright (c) 2006, Industrial Light & Magic, a division of Lucasfilm
-                      Entertainment Company Ltd. Portions contributed and copyright held by
-                      others as indicated. All rights reserved.
-
-                      The project homepage: http://www.openexr.com
-------------------------------------------------------------------------------------
 ffmpeg                FFmpeg is a complete, cross-platform solution to record,
                       convert and stream audio and video. It includes libavcodec -
                       the leading audio/video codec library, and also libavformat, libavutils and

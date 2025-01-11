@@ -319,23 +319,13 @@ endif()
 # --- OpenEXR (optional) ---
 if(WITH_OPENEXR)
   ocv_clear_vars(HAVE_OPENEXR)
-  if(NOT BUILD_OPENEXR)
-    ocv_clear_internal_cache_vars(OPENEXR_INCLUDE_PATHS OPENEXR_LIBRARIES OPENEXR_ILMIMF_LIBRARY OPENEXR_VERSION)
-    include("${OpenCV_SOURCE_DIR}/cmake/OpenCVFindOpenEXR.cmake")
-  endif()
+  ocv_clear_internal_cache_vars(OPENEXR_INCLUDE_PATHS OPENEXR_LIBRARIES OPENEXR_ILMIMF_LIBRARY OPENEXR_VERSION)
+  include("${OpenCV_SOURCE_DIR}/cmake/OpenCVFindOpenEXR.cmake")
 
   if(OPENEXR_FOUND)
     set(HAVE_OPENEXR YES)
   else()
-    ocv_clear_vars(OPENEXR_INCLUDE_PATHS OPENEXR_LIBRARIES OPENEXR_ILMIMF_LIBRARY OPENEXR_VERSION)
-
-    set(OPENEXR_LIBRARIES IlmImf)
-    add_subdirectory("${OpenCV_SOURCE_DIR}/3rdparty/openexr")
-    if(OPENEXR_VERSION)  # check via TARGET doesn't work
-      set(BUILD_OPENEXR ON)
-      set(HAVE_OPENEXR YES)
-      set(BUILD_OPENEXR ON)
-    endif()
+    set(HAVE_OPENEXR NO)
   endif()
 endif()
 
