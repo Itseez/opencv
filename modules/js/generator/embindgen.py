@@ -825,14 +825,13 @@ class JSWrapperGenerator(object):
                         # Register the smart pointer
                         base_class_name = variant.rettype
                         base_class_name = base_class_name.replace("Ptr<","").replace(">","").strip()
-                        self.classes[base_class_name].has_smart_ptr = True
+
+                        prefix_class_name = base_class_name if base_class_name in self.classes else ns_id + '_' + base_class_name
+                        self.classes[prefix_class_name].has_smart_ptr = True
 
                         # Adds the external constructor
-                        class_name = func.name.replace("create", "")
-                        if not class_name in self.classes:
-                            self.classes[base_class_name].methods[func.cname] = func
-                        else:
-                            self.classes[class_name].methods[func.cname] = func
+                        self.classes[prefix_class_name].methods[func.cname] = func
+
                         ext_cnst = True
                 if ext_cnst:
                     continue

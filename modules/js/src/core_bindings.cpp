@@ -95,6 +95,11 @@ typedef aruco::DetectorParameters aruco_DetectorParameters;
 typedef QRCodeDetectorAruco::Params QRCodeDetectorAruco_Params;
 #endif
 
+#ifdef HAVE_OPENCV_IMGCODECS
+using namespace cv::ximgproc;
+typedef ximgproc::EdgeDrawing::Params EdgeDrawing_Params;
+#endif
+
 #ifdef HAVE_OPENCV_DNN
 using namespace cv::dnn;
 #endif
