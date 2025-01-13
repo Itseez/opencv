@@ -80,6 +80,7 @@ void medianBlur(const Mat& src0, /*const*/ Mat& dst, int ksize);
 
 #ifndef CV_CPU_OPTIMIZATION_DECLARATIONS_ONLY
 
+#if 0 // disabled for now
 static void
 medianBlur_8u_O1( const Mat& _src, Mat& _dst, int ksize )
 {
@@ -489,7 +490,149 @@ medianBlur_8u_Om( const Mat& _src, Mat& _dst, int m )
 #undef N
 #undef UPDATE_ACC
 }
+#endif
 
+// Binary search to find the median offset in the histogram
+static inline void
+get_median_ofs256(int &ofs, const uint16_t *hist, const int halfsum) {
+    int s = 0, step = 128;
+    uint16_t ds, m;
+
+#if CV_SIMD || CV_SIMD_SCALABLE
+    const int lanes = VTraits<v_uint16>::vlanes();
+#endif
+
+    ofs = 0;
+    while (step) {
+#if CV_SIMD || CV_SIMD_SCALABLE
+        // Use SIMD instructions when the step is larger than or equal to the lane size
+        if (step >= lanes) {
+            v_uint16 v_ds = vx_load(hist + ofs);
+            for (int i = lanes; i <= step - lanes; i += lanes)
+                v_ds = v_add(v_ds, vx_load(hist + ofs + i));
+            ds = v_reduce_sum(v_ds);
+        }
+            // For smaller steps, use scalar accumulation
+        else
+#endif
+        {
+            ds = hist[ofs];
+            for (int i = 1; i < step; i++)
+                ds += hist[ofs + i];
+        }
+
+        // Determine if the cumulative sum has reached or surpassed half the total sum
+        m = (s + ds) <= halfsum;
+        ofs += m * step;
+        s += ds & -m;
+        step = step >> 1;
+    }
+}
+
+static void
+medianBlur_8u(const Mat &_src, Mat &_dst, int ksize) {
+    CV_INSTRUMENT_REGION();
+
+    const int channels = _src.channels();
+    int radius = ksize / 2;
+    CV_Assert(ksize % 2 == 1);
+
+    const int rows = _src.rows;
+    const int cols = _src.cols;
+    const int win_half_size = ksize * ksize / 2;
+
+    const uint8_t *src_data = _src.ptr<uint8_t>();
+    size_t src_step = _src.step;
+    uint8_t *dst_data = _dst.ptr<uint8_t>();
+    size_t dst_step = _dst.step;
+
+    double nstripes = (double) (rows * cols) / 1024.0;
+    parallel_for_(Range(0, rows), [&](const Range &r) {
+        int y_start = r.start;
+        int y_end = r.end;
+
+        std::vector<std::vector<uint16_t>> hist256(channels, std::vector<uint16_t>(256, 0));
+        std::vector<const uint8_t *> win_row_ptrs(ksize);
+
+        // initial hist for the first pixel
+        for (int dy = -radius; dy <= radius; dy++) {
+            int y = std::clamp(y_start + dy, 0, rows - 1);
+            const uint8_t *row_ptr = src_data + y * src_step;
+            win_row_ptrs[dy + radius] = row_ptr;
+
+            // always start from col 0, so need to add radius to first pixel
+            for (int c = 0; c < channels; ++c)
+                hist256[c][row_ptr[c]] += radius + 1;
+            // add the rest of the row
+            for (int dx = 1; dx <= radius; dx++) {
+                int x = std::min(dx, cols - 1);
+                const uint8_t *pixel_ptr = row_ptr + x * channels;
+                for (int c = 0; c < channels; ++c) {
+                    hist256[c][pixel_ptr[c]]++;
+                }
+            }
+        }
+
+        int x_start = 0, x_end = cols, x_step = 1;
+        // slide the window across the row
+        for (int y = y_start; y < y_end; y++) {
+            uint8_t *dst_pixel_ptr = dst_data + y * dst_step + x_start * channels;
+            for (int x = x_start; x != x_end; x += x_step, dst_pixel_ptr += x_step * channels) {
+                if (x != x_start) {
+                    // update hist by removing and adding pixel values as the window moves
+                    int x_remove = std::clamp(x - (radius + 1) * x_step, 0, cols - 1) * channels;
+                    int x_add = std::clamp(x + radius * x_step, 0, cols - 1) * channels;
+                    for (int dy = 0; dy < ksize; dy++) {
+                        const uint8_t *win_pixel_ptr = win_row_ptrs[dy];
+                        for (int c = 0; c < channels; ++c) {
+                            hist256[c][win_pixel_ptr[x_remove + c]]--;
+                            hist256[c][win_pixel_ptr[x_add + c]]++;
+                        }
+                    }
+                }
+
+                for (int c = 0; c < channels; ++c) {
+                    int ofs = 0;
+                    get_median_ofs256(ofs, hist256[c].data(), win_half_size);
+                    dst_pixel_ptr[c] = static_cast<uint8_t>(ofs);
+                }
+            }
+
+            // update hist for the next row
+            if (y + 1 < y_end) {
+                const uint8_t *old_row_ptr = win_row_ptrs[0];
+                int y_new = std::min(y + radius + 1, rows - 1);
+                const uint8_t *new_row_ptr = src_data + y_new * src_step;
+
+                for (int dy = 1; dy < ksize; dy++)
+                    win_row_ptrs[dy - 1] = win_row_ptrs[dy];
+                win_row_ptrs[ksize - 1] = new_row_ptr;
+
+                int dx = (x_end - x_step) * channels;
+
+                for (int c = 0; c < channels; ++c) {
+                    hist256[c][old_row_ptr[dx + c]] -= radius + 1;
+                    hist256[c][new_row_ptr[dx + c]] += radius + 1;
+                }
+
+                for (dx = 2 * channels; dx <= (radius + 1) * channels; dx += channels) {
+                    int x = std::clamp(x_end * channels - dx * x_step, 0, (cols - 1) * channels);
+
+                    for (int c = 0; c < channels; ++c) {
+                        hist256[c][old_row_ptr[x + c]]--;
+                        hist256[c][new_row_ptr[x + c]]++;
+                    }
+                }
+
+                // reverse the traversal direction for efficient memory access (zigzag pattern)
+                dx = x_start;
+                x_step = -x_step;
+                x_start = x_end + x_step;
+                x_end = dx + x_step;
+            }
+        }
+    }, nstripes);
+}
 
 namespace {
 
@@ -873,18 +1016,10 @@ void medianBlur(const Mat& src0, /*const*/ Mat& dst, int ksize)
     }
     else
     {
-        // TODO AVX guard (external call)
-        cv::copyMakeBorder( src0, src, 0, 0, ksize/2, ksize/2, BORDER_REPLICATE|BORDER_ISOLATED);
-
         int cn = src0.channels();
-        CV_Assert( src.depth() == CV_8U && (cn == 1 || cn == 3 || cn == 4) );
+        CV_Assert(src.depth() == CV_8U && (cn == 1 || cn == 3 || cn == 4));
 
-        double img_size_mp = (double)(src0.total())/(1 << 20);
-        if( ksize <= 3 + (img_size_mp < 1 ? 12 : img_size_mp < 4 ? 6 : 2)*
-            ((CV_SIMD || CV_SIMD_SCALABLE) ? 1 : 3))
-            medianBlur_8u_Om( src, dst, ksize );
-        else
-            medianBlur_8u_O1( src, dst, ksize );
+        medianBlur_8u(src0, dst, ksize);
     }
 }
 
