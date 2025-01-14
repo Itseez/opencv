@@ -3040,6 +3040,41 @@ CV_EXPORTS_W void triangleRasterizeColor(InputArray vertices, InputArray indices
                                          InputArray world2cam, double fovY, double zNear, double zFar,
                                          const TriangleRasterizeSettings& settings = TriangleRasterizeSettings());
 
+/** @brief Spectral Cluster for Mesh Segmentation
+ *
+ * The SpectralCluster class implements a method for segmenting a 3D mesh into k segments of triangular faces using
+ * spectral clustering.
+ * This technique combines constructing the affinity matrix from the input mesh, and using eigen decomposition to
+ * project data into a k-dimensional space. The K-Means algorithm is then applied to the eigenvectors to generate
+ * segment labels.
+ *
+ * For more detailed description, see https://github.com/opencv/opencv/pull/25597
+*/
+class CV_EXPORTS SpectralCluster {
+public:
+    /** @brief Mesh Spectral Cluster
+
+    @param delta A float number between 0 and 1 controlling the relative importance of geodesic distance and angle distance.
+    Usually, 0 < delta < 0.2
+    @param eta A float number between 0 and 1, which gives weight to concavity in clustering. Usually, 0 < eta < 0.1
+    */
+    SpectralCluster();
+    SpectralCluster(float delta, float eta);
+
+    /** @brief Cluster the input mesh into k segments
+    @param vertices vertices coordinates array, should contain values of Point3f
+    @param indices triangle vertices index array, 3 per triangle. Each index indicates a vertex in a vertices array
+    @param k integer, indicates number of segments
+    @param result output labels corresponding to each triangular face
+    */
+    void cluster(const std::vector<cv::Point3f> &vertices, const std::vector<std::vector<int32_t>> &indices, int k,
+                 OutputArray result);
+
+private:
+    class Impl;
+    Ptr<Impl> pImpl;
+};
+
 //! @} _3d
 } //end namespace cv
 
