@@ -809,6 +809,15 @@ struct GeluFunctor : public BaseFunctor {
     }
 #endif  // HAVE_DNN_NGRAPH
 
+#ifdef HAVE_CANN
+    Ptr<BackendNode> initCannOp(const std::string& name,
+                                const std::vector<Ptr<BackendWrapper> > &inputs,
+                                const std::vector<Ptr<BackendNode> >& nodes)
+    {
+        CV_Error(Error::StsNotImplemented, "");
+    }
+#endif // HAVE_CANN
+
     int64 getFLOPSPerElement() const { return 100; }
 };
 

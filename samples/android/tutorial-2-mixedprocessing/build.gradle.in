@@ -14,10 +14,11 @@ android {
             cmake {
                 if (gradle.opencv_source == "sdk_path") {
                     arguments "-DOpenCV_DIR=" + project(':opencv').projectDir + "/@ANDROID_PROJECT_JNI_PATH@",
+                              "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
                               "-DOPENCV_FROM_SDK=TRUE"@OPENCV_ANDROID_CMAKE_EXTRA_ARGS@
-
                 } else {
                     arguments "-DOPENCV_VERSION_MAJOR=@OPENCV_VERSION_MAJOR@",
+                              "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
                               "-DOPENCV_FROM_SDK=FALSE"@OPENCV_ANDROID_CMAKE_EXTRA_ARGS@
                 }
                 targets "mixed_sample"

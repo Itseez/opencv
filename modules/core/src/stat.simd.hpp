@@ -48,12 +48,16 @@ int normHamming(const uchar* a, int n)
 #  if defined CV_POPCNT_U64
         for(; i <= n - 8; i += 8)
         {
-            result += (int)CV_POPCNT_U64(*(uint64*)(a + i));
+            uint64_t val;
+            std::memcpy(&val, a + i, sizeof(val));
+            result += (int)CV_POPCNT_U64(val);
         }
 #  endif
         for(; i <= n - 4; i += 4)
         {
-            result += CV_POPCNT_U32(*(uint*)(a + i));
+            uint32_t val;
+            std::memcpy(&val, a + i, sizeof(val));
+            result += CV_POPCNT_U32(val);
         }
     }
 #endif
@@ -92,12 +96,18 @@ int normHamming(const uchar* a, const uchar* b, int n)
 #  if defined CV_POPCNT_U64
         for(; i <= n - 8; i += 8)
         {
-            result += (int)CV_POPCNT_U64(*(uint64*)(a + i) ^ *(uint64*)(b + i));
+            uint64_t val_a, val_b;
+            std::memcpy(&val_a, a + i, sizeof(val_a));
+            std::memcpy(&val_b, b + i, sizeof(val_b));
+            result += (int)CV_POPCNT_U64(val_a ^ val_b);
         }
 #  endif
         for(; i <= n - 4; i += 4)
         {
-            result += CV_POPCNT_U32(*(uint*)(a + i) ^ *(uint*)(b + i));
+            uint32_t val_a, val_b;
+            std::memcpy(&val_a, a + i, sizeof(val_a));
+            std::memcpy(&val_b, b + i, sizeof(val_b));
+            result += (int)CV_POPCNT_U32(val_a ^ val_b);
         }
     }
 #endif

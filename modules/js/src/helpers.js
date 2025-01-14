@@ -66,7 +66,6 @@ Module['imread'] = function(imageSource) {
         ctx = canvas.getContext('2d');
     } else {
         throw new Error('Please input the valid canvas or img id.');
-        return;
     }
 
     var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -82,11 +81,9 @@ Module['imshow'] = function(canvasSource, mat) {
     }
     if (!(canvas instanceof HTMLCanvasElement)) {
         throw new Error('Please input the valid canvas element or id.');
-        return;
     }
     if (!(mat instanceof cv.Mat)) {
         throw new Error('Please input the valid cv.Mat instance.');
-        return;
     }
 
     // convert the mat type to cv.CV_8U
@@ -108,7 +105,6 @@ Module['imshow'] = function(canvasSource, mat) {
             break;
         default:
             throw new Error('Bad number of channels (Source image must have 1, 3 or 4 channels)');
-            return;
     }
     var imgData = new ImageData(new Uint8ClampedArray(img.data), img.cols, img.rows);
     var ctx = canvas.getContext('2d');
@@ -128,7 +124,6 @@ Module['VideoCapture'] = function(videoSource) {
     }
     if (!(video instanceof HTMLVideoElement)) {
         throw new Error('Please input the valid video element or id.');
-        return;
     }
     var canvas = document.createElement('canvas');
     canvas.width = video.width;
@@ -138,15 +133,12 @@ Module['VideoCapture'] = function(videoSource) {
     this.read = function(frame) {
         if (!(frame instanceof cv.Mat)) {
             throw new Error('Please input the valid cv.Mat instance.');
-            return;
         }
         if (frame.type() !== cv.CV_8UC4) {
             throw new Error('Bad type of input mat: the type should be cv.CV_8UC4.');
-            return;
         }
         if (frame.cols !== video.width || frame.rows !== video.height) {
             throw new Error('Bad size of input mat: the size should be same as the video.');
-            return;
         }
         ctx.drawImage(video, 0, 0, video.width, video.height);
         frame.data.set(ctx.getImageData(0, 0, video.width, video.height).data);
@@ -263,7 +255,7 @@ function Scalar(v0, v1, v2, v3) {
 Scalar.prototype = new Array; // eslint-disable-line no-array-constructor
 
 Scalar.all = function(v) {
-    return new Scalar(v, v, v, v);
+    return Scalar(v, v, v, v);
 };
 
 Module['Scalar'] = Scalar;
@@ -273,8 +265,8 @@ function MinMaxLoc() {
         case 0: {
             this.minVal = 0;
             this.maxVal = 0;
-            this.minLoc = new Point();
-            this.maxLoc = new Point();
+            this.minLoc = Point(0, 0);
+            this.maxLoc = Point(0, 0);
             break;
         }
         case 4: {
@@ -295,7 +287,7 @@ Module['MinMaxLoc'] = MinMaxLoc;
 function Circle() {
     switch (arguments.length) {
         case 0: {
-            this.center = new Point();
+            this.center = Point(0, 0);
             this.radius = 0;
             break;
         }

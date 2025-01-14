@@ -1324,7 +1324,9 @@ void vlineSmooth3N<uint8_t, ufixedpoint16>(const ufixedpoint16* const * src, con
         ufixedpoint32 val[] = { (m[0] + m[1] + m[2]) * ufixedpoint16((uint8_t)128) };
         v_128_4 = vx_setall_s32(*((int32_t*)val));
     }
-    v_int16 v_mul01 = v_reinterpret_as_s16(vx_setall_u32(*((uint32_t*)m)));
+    uint32_t val01;
+    std::memcpy(&val01, m, sizeof(val01));
+    v_int16 v_mul01 = v_reinterpret_as_s16(vx_setall_u32(val01));
     v_int16 v_mul2 = v_reinterpret_as_s16(vx_setall_u16(*((uint16_t*)(m + 2))));
     for (; i <= len - 4*VECSZ; i += 4*VECSZ)
     {

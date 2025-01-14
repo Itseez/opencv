@@ -75,6 +75,9 @@
 /* IJG JPEG codec */
 #cmakedefine HAVE_JPEG
 
+/* JPEG XL codec */
+#cmakedefine HAVE_JPEGXL
+
 /* GDCM DICOM codec */
 #cmakedefine HAVE_GDCM
 

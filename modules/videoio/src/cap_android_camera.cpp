@@ -33,23 +33,27 @@ using namespace cv;
 
 #define FOURCC_BGR CV_FOURCC_MACRO('B','G','R','3')
 #define FOURCC_RGB CV_FOURCC_MACRO('R','G','B','3')
+#define FOURCC_BGRA CV_FOURCC_MACRO('B','G','R','4')
+#define FOURCC_RGBA CV_FOURCC_MACRO('R','G','B','4')
 #define FOURCC_GRAY CV_FOURCC_MACRO('G','R','E','Y')
 #define FOURCC_NV21 CV_FOURCC_MACRO('N','V','2','1')
 #define FOURCC_YV12 CV_FOURCC_MACRO('Y','V','1','2')
 #define FOURCC_UNKNOWN  0xFFFFFFFF
 
-template <typename T> class RangeValue {
-public:
+template <typename T> struct RangeValue {
     T min, max;
     /**
      * return absolute value from relative value
      * * value: in percent (50 for 50%)
      * */
     T value(int percent) {
-        return static_cast<T>(min + (max - min) * percent / 100);
+        return static_cast<T>(min + ((max - min) * percent) / 100);
     }
-    RangeValue() { min = max = static_cast<T>(0); }
-    bool Supported(void) const { return (min != max); }
+    RangeValue(T minv = 0, T maxv = 0) : min(minv), max(maxv) {}
+    bool Supported() const { return (min != max); }
+    T clamp( T value ) const {
+        return (value > max) ? max : ((value < min) ? min : value);
+    }
 };
 
 static inline void deleter_ACameraManager(ACameraManager *cameraManager) {
@@ -165,8 +169,7 @@ void OnCaptureFailed(void* context,
  *     on camera. For this sample purpose, clamp to a range showing visible
  *     video on preview: 100000ns ~ 250000000ns
  */
-static const long kMinExposureTime = 1000000L;
-static const long kMaxExposureTime = 250000000L;
+static const RangeValue<int64_t> exposureTimeLimits = { 1000000, 250000000 };
 
 static double elapsedTimeFrom(std::chrono::time_point<std::chrono::system_clock> start) {
     return std::chrono::duration<double>(std::chrono::system_clock::now() - start).count();
@@ -188,7 +191,7 @@ class AndroidCameraCapture : public IVideoCapture
     int32_t frameWidth = 0;
     int32_t frameStride = 0;
     int32_t frameHeight = 0;
-    int32_t colorFormat;
+    int32_t colorFormat = COLOR_FormatUnknown;
     std::vector<uint8_t> buffer;
     bool sessionOutputAdded = false;
     bool targetAdded = false;
@@ -198,8 +201,9 @@ class AndroidCameraCapture : public IVideoCapture
     bool settingHeight = false;
     int desiredWidth = 640;
     int desiredHeight = 480;
-    bool autoExposure = true;
-    int64_t exposureTime = 0L;
+    uint8_t flashMode = ACAMERA_FLASH_MODE_OFF;
+    uint8_t aeMode = ACAMERA_CONTROL_AE_MODE_ON;
+    int64_t exposureTime = 0;
     RangeValue<int64_t> exposureRange;
     int32_t sensitivity = 0;
     RangeValue<int32_t> sensitivityRange;
@@ -212,7 +216,24 @@ public:
     std::condition_variable condition;
 
 public:
-    AndroidCameraCapture() {}
+    AndroidCameraCapture(const VideoCaptureParameters& params)
+    {
+        desiredWidth = params.get<int>(CAP_PROP_FRAME_WIDTH, desiredWidth);
+        desiredHeight = params.get<int>(CAP_PROP_FRAME_HEIGHT, desiredHeight);
+
+        static const struct {
+            int propId;
+            uint32_t defaultValue;
+        } items[] = {
+            { CAP_PROP_AUTO_EXPOSURE, 1 },
+            { CAP_PROP_FOURCC, FOURCC_UNKNOWN },
+            { CAP_PROP_ANDROID_DEVICE_TORCH, 0 }
+        };
+
+        for (auto it = std::begin(items); it != std::end(items); ++it) {
+            setProperty(it->propId, params.get<double>(it->propId, it->defaultValue));
+        }
+    }
 
     ~AndroidCameraCapture() { cleanUp(); }
 
@@ -357,14 +378,20 @@ public:
         if (colorFormat == COLOR_FormatYUV420Planar) {
             Mat yuv(frameHeight + frameHeight/2, frameWidth, CV_8UC1, buffer.data());
             switch (fourCC) {
+                case FOURCC_BGRA:
+                    cvtColor(yuv, out, COLOR_YUV2BGRA_YV12);
+                    break;
+                case FOURCC_RGBA:
+                    cvtColor(yuv, out, COLOR_YUV2RGBA_YV12);
+                    break;
                 case FOURCC_BGR:
-                    cv::cvtColor(yuv, out, cv::COLOR_YUV2BGR_YV12);
+                    cvtColor(yuv, out, COLOR_YUV2BGR_YV12);
                     break;
                 case FOURCC_RGB:
-                    cv::cvtColor(yuv, out, cv::COLOR_YUV2RGB_YV12);
+                    cvtColor(yuv, out, COLOR_YUV2RGB_YV12);
                     break;
                 case FOURCC_GRAY:
-                    cv::cvtColor(yuv, out, cv::COLOR_YUV2GRAY_YV12);
+                    cvtColor(yuv, out, COLOR_YUV2GRAY_YV12);
                     break;
                 case FOURCC_YV12:
                     yuv.copyTo(out);
@@ -377,14 +404,20 @@ public:
             Mat yuv(frameHeight + frameHeight/2, frameStride, CV_8UC1, buffer.data());
             Mat tmp = (frameWidth == frameStride) ? yuv : yuv(Rect(0, 0, frameWidth, frameHeight + frameHeight / 2));
             switch (fourCC) {
+                case FOURCC_BGRA:
+                    cvtColor(tmp, out, COLOR_YUV2BGRA_NV21);
+                    break;
+                case FOURCC_RGBA:
+                    cvtColor(tmp, out, COLOR_YUV2RGBA_NV21);
+                    break;
                 case FOURCC_BGR:
-                    cv::cvtColor(tmp, out, cv::COLOR_YUV2BGR_NV21);
+                    cvtColor(tmp, out, COLOR_YUV2BGR_NV21);
                     break;
                 case FOURCC_RGB:
-                    cv::cvtColor(tmp, out, cv::COLOR_YUV2RGB_NV21);
+                    cvtColor(tmp, out, COLOR_YUV2RGB_NV21);
                     break;
                 case FOURCC_GRAY:
-                    cv::cvtColor(tmp, out, cv::COLOR_YUV2GRAY_NV21);
+                    cvtColor(tmp, out, COLOR_YUV2GRAY_NV21);
                     break;
                 case FOURCC_NV21:
                     tmp.copyTo(out);
@@ -408,13 +441,15 @@ public:
             case CAP_PROP_FRAME_HEIGHT:
                 return isOpened() ? frameHeight : desiredHeight;
             case CAP_PROP_AUTO_EXPOSURE:
-                return autoExposure ? 1 : 0;
+                return (aeMode == ACAMERA_CONTROL_AE_MODE_ON) ? 1 : 0;
             case CAP_PROP_EXPOSURE:
                 return exposureTime;
             case CAP_PROP_ISO_SPEED:
                 return sensitivity;
             case CAP_PROP_FOURCC:
                 return fourCC;
+            case CAP_PROP_ANDROID_DEVICE_TORCH:
+                return (flashMode == ACAMERA_FLASH_MODE_TORCH) ? 1 : 0;
             default:
                 break;
         }
@@ -452,6 +487,8 @@ public:
                         switch (newFourCC) {
                             case FOURCC_BGR:
                             case FOURCC_RGB:
+                            case FOURCC_BGRA:
+                            case FOURCC_RGBA:
                             case FOURCC_GRAY:
                                 fourCC = newFourCC;
                                 return true;
@@ -478,29 +515,31 @@ public:
                     }
                 }
             case CAP_PROP_AUTO_EXPOSURE:
-                autoExposure = (value != 0);
+                aeMode = (value != 0) ? ACAMERA_CONTROL_AE_MODE_ON : ACAMERA_CONTROL_AE_MODE_OFF;
                 if (isOpened()) {
-                    uint8_t aeMode = autoExposure ? ACAMERA_CONTROL_AE_MODE_ON : ACAMERA_CONTROL_AE_MODE_OFF;
-                    camera_status_t status = ACaptureRequest_setEntry_u8(captureRequest.get(), ACAMERA_CONTROL_AE_MODE, 1, &aeMode);
-                    return status == ACAMERA_OK;
+                    return submitRequest(ACaptureRequest_setEntry_u8, ACAMERA_CONTROL_AE_MODE, aeMode);
                 }
                 return true;
             case CAP_PROP_EXPOSURE:
                 if (isOpened() && exposureRange.Supported()) {
-                    exposureTime = (int64_t)value;
+                    exposureTime = exposureRange.clamp(static_cast<int64_t>(value));
                     LOGI("Setting CAP_PROP_EXPOSURE will have no effect unless CAP_PROP_AUTO_EXPOSURE is off");
-                    camera_status_t status = ACaptureRequest_setEntry_i64(captureRequest.get(), ACAMERA_SENSOR_EXPOSURE_TIME, 1, &exposureTime);
-                    return status == ACAMERA_OK;
+                    return submitRequest(ACaptureRequest_setEntry_i64, ACAMERA_SENSOR_EXPOSURE_TIME, exposureTime);
                 }
                 return false;
             case CAP_PROP_ISO_SPEED:
                 if (isOpened() && sensitivityRange.Supported()) {
-                    sensitivity = (int32_t)value;
+                    sensitivity = sensitivityRange.clamp(static_cast<int32_t>(value));
                     LOGI("Setting CAP_PROP_ISO_SPEED will have no effect unless CAP_PROP_AUTO_EXPOSURE is off");
-                    camera_status_t status = ACaptureRequest_setEntry_i32(captureRequest.get(), ACAMERA_SENSOR_SENSITIVITY, 1, &sensitivity);
-                    return status == ACAMERA_OK;
+                    return submitRequest(ACaptureRequest_setEntry_i32, ACAMERA_SENSOR_SENSITIVITY, sensitivity);
                 }
                 return false;
+            case CAP_PROP_ANDROID_DEVICE_TORCH:
+                flashMode = (value != 0) ? ACAMERA_FLASH_MODE_TORCH : ACAMERA_FLASH_MODE_OFF;
+                if (isOpened()) {
+                    return submitRequest(ACaptureRequest_setEntry_u8, ACAMERA_FLASH_MODE, flashMode);
+                }
+                return true;
             default:
                 break;
         }
@@ -561,7 +600,7 @@ public:
             return false;
         }
         std::shared_ptr<ACameraMetadata> cameraMetadata = std::shared_ptr<ACameraMetadata>(metadata, deleter_ACameraMetadata);
-        ACameraMetadata_const_entry entry;
+        ACameraMetadata_const_entry entry = {};
         ACameraMetadata_getConstEntry(cameraMetadata.get(), ACAMERA_SCALER_AVAILABLE_STREAM_CONFIGURATIONS, &entry);
 
         double bestScore = std::numeric_limits<double>::max();
@@ -594,25 +633,19 @@ public:
         }
         LOGI("Best resolution match: %dx%d", bestMatchWidth, bestMatchHeight);
 
-        ACameraMetadata_const_entry val = { 0, };
-        camera_status_t status = ACameraMetadata_getConstEntry(cameraMetadata.get(), ACAMERA_SENSOR_INFO_EXPOSURE_TIME_RANGE, &val);
-        if (status == ACAMERA_OK) {
-            exposureRange.min = val.data.i64[0];
-            if (exposureRange.min < kMinExposureTime) {
-                exposureRange.min = kMinExposureTime;
-            }
-            exposureRange.max = val.data.i64[1];
-            if (exposureRange.max > kMaxExposureTime) {
-                exposureRange.max = kMaxExposureTime;
-            }
+        ACameraMetadata_const_entry val;
+        cStatus = ACameraMetadata_getConstEntry(cameraMetadata.get(), ACAMERA_SENSOR_INFO_EXPOSURE_TIME_RANGE, &val);
+        if (cStatus == ACAMERA_OK) {
+            exposureRange.min = exposureTimeLimits.clamp(val.data.i64[0]);
+            exposureRange.max = exposureTimeLimits.clamp(val.data.i64[1]);
             exposureTime = exposureRange.value(2);
         } else {
             LOGW("Unsupported ACAMERA_SENSOR_INFO_EXPOSURE_TIME_RANGE");
-            exposureRange.min = exposureRange.max = 0l;
-            exposureTime = 0l;
+            exposureRange.min = exposureRange.max = 0;
+            exposureTime = 0;
         }
-        status = ACameraMetadata_getConstEntry(cameraMetadata.get(), ACAMERA_SENSOR_INFO_SENSITIVITY_RANGE, &val);
-        if (status == ACAMERA_OK){
+        cStatus = ACameraMetadata_getConstEntry(cameraMetadata.get(), ACAMERA_SENSOR_INFO_SENSITIVITY_RANGE, &val);
+        if (cStatus == ACAMERA_OK){
             sensitivityRange.min = val.data.i32[0];
             sensitivityRange.max = val.data.i32[1];
             sensitivity = sensitivityRange.value(2);
@@ -693,12 +726,13 @@ public:
             return false;
         }
         captureSession = std::shared_ptr<ACameraCaptureSession>(session, deleter_ACameraCaptureSession);
-        uint8_t aeMode = autoExposure ? ACAMERA_CONTROL_AE_MODE_ON : ACAMERA_CONTROL_AE_MODE_OFF;
+
         ACaptureRequest_setEntry_u8(captureRequest.get(), ACAMERA_CONTROL_AE_MODE, 1, &aeMode);
         ACaptureRequest_setEntry_i32(captureRequest.get(), ACAMERA_SENSOR_SENSITIVITY, 1, &sensitivity);
-        if (!autoExposure) {
+        if (aeMode != ACAMERA_CONTROL_AE_MODE_ON) {
             ACaptureRequest_setEntry_i64(captureRequest.get(), ACAMERA_SENSOR_EXPOSURE_TIME, 1, &exposureTime);
         }
+        ACaptureRequest_setEntry_u8(captureRequest.get(), ACAMERA_FLASH_MODE, 1, &flashMode);
 
         cStatus = ACameraCaptureSession_setRepeatingRequest(captureSession.get(), GetCaptureCallback(), 1, &request, nullptr);
         if (cStatus != ACAMERA_OK) {
@@ -731,6 +765,18 @@ public:
         cameraDevice = nullptr;
         cameraManager = nullptr;
         imageReader = nullptr;
+    }
+
+    template<typename FuncT, typename T>
+    bool submitRequest(FuncT setFn, uint32_t tag, const T &data)
+    {
+        ACaptureRequest *request = captureRequest.get();
+
+        return request &&
+               setFn(request, tag, 1, &data) == ACAMERA_OK &&
+               ACameraCaptureSession_setRepeatingRequest(captureSession.get(),
+                                                         GetCaptureCallback(),
+                                                         1, &request, nullptr) == ACAMERA_OK;
     }
 };
 
@@ -788,8 +834,8 @@ void OnCaptureFailed(void* context,
 
 /****************** Implementation of interface functions ********************/
 
-Ptr<IVideoCapture> cv::createAndroidCapture_cam( int index ) {
-    Ptr<AndroidCameraCapture> res = makePtr<AndroidCameraCapture>();
+Ptr<IVideoCapture> cv::createAndroidCapture_cam(int index, const VideoCaptureParameters& params) {
+    Ptr<AndroidCameraCapture> res = makePtr<AndroidCameraCapture>(params);
     if (res && res->initCapture(index))
         return res;
     return Ptr<IVideoCapture>();

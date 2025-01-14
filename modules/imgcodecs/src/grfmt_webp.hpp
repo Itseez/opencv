@@ -49,6 +49,8 @@
 
 #include <fstream>
 
+struct WebPAnimDecoder;
+
 namespace cv
 {
 
@@ -61,6 +63,7 @@ public:
 
     bool readData( Mat& img ) CV_OVERRIDE;
     bool readHeader() CV_OVERRIDE;
+    bool nextPage() CV_OVERRIDE;
 
     size_t signatureLength() const CV_OVERRIDE;
     bool checkSignature( const String& signature) const CV_OVERRIDE;
@@ -68,10 +71,16 @@ public:
     ImageDecoder newDecoder() const CV_OVERRIDE;
 
 protected:
+    struct UniquePtrDeleter {
+        void operator()(WebPAnimDecoder* decoder) const;
+    };
+
     std::ifstream fs;
     size_t fs_size;
     Mat data;
-    int channels;
+    std::unique_ptr<WebPAnimDecoder, UniquePtrDeleter> anim_decoder;
+    bool m_has_animation;
+    int m_previous_timestamp;
 };
 
 class WebPEncoder CV_FINAL : public BaseImageEncoder
@@ -81,6 +90,7 @@ public:
     ~WebPEncoder() CV_OVERRIDE;
 
     bool write(const Mat& img, const std::vector<int>& params) CV_OVERRIDE;
+    bool writeanimation(const Animation& animation, const std::vector<int>& params) CV_OVERRIDE;
 
     ImageEncoder newEncoder() const CV_OVERRIDE;
 };

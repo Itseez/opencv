@@ -18,6 +18,14 @@ find_package(OpenCL QUIET)
 file(GLOB srcs *.cpp *.c)
 file(GLOB hdrs *.hpp *.h)
 
+# For 16k pages support with NDK prior 27
+# Details: https://developer.android.com/guide/practices/page-sizes?hl=en
+if(ANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES)
+  if(ANDROID_ABI STREQUAL arm64-v8a OR ANDROID_ABI STREQUAL x86_64)
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,max-page-size=16384")
+  endif()
+endif()
+
 include_directories("${CMAKE_CURRENT_LIST_DIR}")
 add_library(${target} SHARED ${srcs} ${hdrs})
 

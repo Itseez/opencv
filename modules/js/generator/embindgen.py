@@ -132,7 +132,7 @@ white_list = None
 namespace_prefix_override = None
 
 # Features to be exported
-export_enums = False
+export_enums = True
 export_consts = True
 with_wrapped_functions = True
 with_default_params = True
@@ -248,16 +248,17 @@ class ArgInfo(object):
                 self.const = True
             elif m == "/Ref":
                 self.reference = True
-        if self.tp == "Mat":
-            if self.outputarg:
-                self.tp = "cv::Mat&"
-            elif self.inputarg:
-                self.tp = "const cv::Mat&"
-        if self.tp == "vector_Mat":
-            if self.outputarg:
-                self.tp = "std::vector<cv::Mat>&"
-            elif self.inputarg:
-                self.tp = "const std::vector<cv::Mat>&"
+        if self.tp == "Mat" and (self.inputarg or self.outputarg):
+            self.tp = "cv::Mat&"
+            if self.inputarg and not self.outputarg:
+                self.const = True
+        if self.tp == "vector_Mat" and (self.inputarg or self.outputarg):
+            self.tp = "std::vector<cv::Mat>&"
+            if self.reference and not self.const:
+                self.inputarg = False
+                self.outputarg = True
+            elif self.inputarg and not self.outputarg:
+                self.const = True
         self.tp = handle_vector(self.tp).strip()
         if self.const:
             self.tp = "const " + self.tp
@@ -916,7 +917,7 @@ class JSWrapperGenerator(object):
                 if ns_name.split('.')[0] != 'cv':
                     continue
                 for name, enum in sorted(ns.enums.items()):
-                    if not name.endswith('.anonymous'):
+                    if '.unnamed_' not in name:
                         name = name.replace("cv.", "")
                         enum_values = []
                         for enum_val in enum:
@@ -936,7 +937,10 @@ class JSWrapperGenerator(object):
             for ns_name, ns in sorted(self.namespaces.items()):
                 if ns_name.split('.')[0] != 'cv':
                     continue
+                # TODO CALIB_FIX_FOCAL_LENGTH is defined both in cv:: and cv::fisheye
+                prefix = 'FISHEYE_' if 'fisheye' in ns_name else ''
                 for name, const in sorted(ns.consts.items()):
+                    name = prefix + name
                     # print("Gen consts: ", name, const)
                     self.bindings.append(const_template.substitute(js_name=name, value=const))
 

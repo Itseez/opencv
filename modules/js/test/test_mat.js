@@ -173,7 +173,7 @@ QUnit.test('test_mat_creation', function(assert) {
     //   clone
     {
         let mat = cv.Mat.ones(5, 5, cv.CV_8UC1);
-        let mat2 = mat.clone();
+        let mat2 = mat.mat_clone();
 
         assert.equal(mat.channels, mat2.channels);
         assert.equal(mat.size().height, mat2.size().height);

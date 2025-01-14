@@ -302,6 +302,7 @@ protected:
 //==================================================================================================
 
 Ptr<IVideoCapture> cvCreateFileCapture_FFMPEG_proxy(const std::string &filename, const VideoCaptureParameters& params);
+Ptr<IVideoCapture> cvCreateStreamCapture_FFMPEG_proxy(const Ptr<IStreamReader>& stream, const VideoCaptureParameters& params);
 Ptr<IVideoWriter> cvCreateVideoWriter_FFMPEG_proxy(const std::string& filename, int fourcc,
                                                    double fps, const Size& frameSize,
                                                    const VideoWriterParameters& params);
@@ -327,6 +328,7 @@ Ptr<IVideoCapture> create_WRT_capture(int device);
 
 Ptr<IVideoCapture> cvCreateCapture_MSMF(int index, const VideoCaptureParameters& params);
 Ptr<IVideoCapture> cvCreateCapture_MSMF(const std::string& filename, const VideoCaptureParameters& params);
+Ptr<IVideoCapture> cvCreateCapture_MSMF(const Ptr<IStreamReader>& stream, const VideoCaptureParameters& params);
 Ptr<IVideoWriter> cvCreateVideoWriter_MSMF(const std::string& filename, int fourcc,
                                            double fps, const Size& frameSize,
                                            const VideoWriterParameters& params);
@@ -367,8 +369,8 @@ Ptr<IVideoCapture> createGPhoto2Capture(const std::string& deviceName);
 
 Ptr<IVideoCapture> createXINECapture(const std::string &filename);
 
-Ptr<IVideoCapture> createAndroidCapture_cam( int index );
-Ptr<IVideoCapture> createAndroidCapture_file(const std::string &filename);
+Ptr<IVideoCapture> createAndroidCapture_cam(int index, const VideoCaptureParameters& params);
+Ptr<IVideoCapture> createAndroidCapture_file(const std::string &filename, const VideoCaptureParameters& params);
 Ptr<IVideoWriter> createAndroidVideoWriter(const std::string& filename, int fourcc,
                                            double fps, const Size& frameSize,
                                            const VideoWriterParameters& params);

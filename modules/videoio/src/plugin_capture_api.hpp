@@ -13,7 +13,7 @@
 /// increased for backward-compatible changes, e.g. add new function
 /// Caller API <= Plugin API -> plugin is fully compatible
 /// Caller API > Plugin API -> plugin is not fully compatible, caller should use extra checks to use plugins with older API
-#define CAPTURE_API_VERSION 1
+#define CAPTURE_API_VERSION 2
 
 /// increased for incompatible changes, e.g. remove function argument
 /// Caller ABI == Plugin ABI -> plugin is compatible
@@ -121,6 +121,29 @@ struct OpenCV_VideoIO_Capture_Plugin_API_v1_1_api_entries
         CV_OUT CvPluginCapture* handle);
 }; // OpenCV_VideoIO_Capture_Plugin_API_v1_1_api_entries
 
+struct OpenCV_VideoIO_Capture_Plugin_API_v1_2_api_entries
+{
+    /** @brief Open video capture from buffer with parameters
+
+    @param opaque A pointer to user data
+    @param read A pointer to a function that is called to reads @p size bytes to allocated @p buffer. Returns a number of bytes that were actually read
+    @param seek A pointer to a function that is called to move starting position inside the stream buffer.
+                @p offset is a number of bytes and @p way is one of the markers SEEK_SET, SEEK_CUR, SEEK_END.
+                Function returns an absolute current position in bytes.
+    @param params pointer on 2*n_params array of 'key,value' pairs
+    @param n_params number of passed parameters
+    @param[out] handle pointer on Capture handle
+
+    @note API-CALL 9, API-Version == 2
+     */
+    CvResult (CV_API_CALL *Capture_open_stream)(
+        void* opaque,
+        long long(*read)(void* opaque, char* buffer, long long size),
+        long long(*seek)(void* opaque, long long offset, int way),
+        int* params, unsigned n_params,
+        CV_OUT CvPluginCapture* handle);
+}; // OpenCV_VideoIO_Capture_Plugin_API_v1_2_api_entries
+
 typedef struct OpenCV_VideoIO_Capture_Plugin_API_v1_0
 {
     OpenCV_API_Header api_header;
@@ -134,7 +157,17 @@ typedef struct OpenCV_VideoIO_Capture_Plugin_API_v1_1
     struct OpenCV_VideoIO_Capture_Plugin_API_v1_1_api_entries v1;
 } OpenCV_VideoIO_Capture_Plugin_API_v1_1;
 
-#if CAPTURE_ABI_VERSION == 1 && CAPTURE_API_VERSION == 1
+typedef struct OpenCV_VideoIO_Capture_Plugin_API_v1_2
+{
+    OpenCV_API_Header api_header;
+    struct OpenCV_VideoIO_Capture_Plugin_API_v1_0_api_entries v0;
+    struct OpenCV_VideoIO_Capture_Plugin_API_v1_1_api_entries v1;
+    struct OpenCV_VideoIO_Capture_Plugin_API_v1_2_api_entries v2;
+} OpenCV_VideoIO_Capture_Plugin_API_v1_2;
+
+#if CAPTURE_ABI_VERSION == 1 && CAPTURE_API_VERSION == 2
+typedef struct OpenCV_VideoIO_Capture_Plugin_API_v1_2 OpenCV_VideoIO_Capture_Plugin_API;
+#elif CAPTURE_ABI_VERSION == 1 && CAPTURE_API_VERSION == 1
 typedef struct OpenCV_VideoIO_Capture_Plugin_API_v1_1 OpenCV_VideoIO_Capture_Plugin_API;
 #elif CAPTURE_ABI_VERSION == 1 && CAPTURE_API_VERSION == 0
 typedef struct OpenCV_VideoIO_Capture_Plugin_API_v1_0 OpenCV_VideoIO_Capture_Plugin_API;

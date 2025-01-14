@@ -532,16 +532,20 @@ control panel.
 Clicking the label of each trackbar enables editing the trackbar values manually.
 
 @param trackbarname Name of the created trackbar.
-@param winname Name of the window that will be used as a parent of the created trackbar.
-@param value Optional pointer to an integer variable whose value reflects the position of the
-slider. Upon creation, the slider position is defined by this variable.
-@param count Maximal position of the slider. The minimal position is always 0.
-@param onChange Pointer to the function to be called every time the slider changes position. This
-function should be prototyped as void Foo(int,void\*); , where the first parameter is the trackbar
-position and the second parameter is the user data (see the next parameter). If the callback is
-the NULL pointer, no callbacks are called, but only value is updated.
-@param userdata User data that is passed as is to the callback. It can be used to handle trackbar
-events without using global variables.
+@param winname Name of the window that will contain the trackbar.
+@param value Pointer to the integer value that will be changed by the trackbar.
+Pass `nullptr` if the value pointer is not used. In this case, manually handle
+the trackbar position in the callback function.
+@param count Maximum position of the trackbar.
+@param onChange Pointer to the function to be called every time the slider changes position.
+This function should have the prototype void Foo(int, void\*);, where the first parameter is
+the trackbar position, and the second parameter is the user data (see the next parameter).
+If the callback is a nullptr, no callbacks are called, but the trackbar's value will still be
+updated automatically.
+@param userdata Optional user data that is passed to the callback.
+@note If the `value` pointer is `nullptr`, the trackbar position must be manually managed.
+Call the callback function manually with the desired initial value to avoid runtime warnings.
+@see \ref tutorial_trackbar
  */
 CV_EXPORTS int createTrackbar(const String& trackbarname, const String& winname,
                               int* value, int count,

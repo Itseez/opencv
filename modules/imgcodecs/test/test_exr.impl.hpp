@@ -35,7 +35,8 @@ TEST(Imgcodecs_EXR, readWrite_32FC1)
 
     ASSERT_TRUE(cv::imwrite(filenameOutput, img));
     // Check generated file size to ensure that it's compressed with proper options
-    ASSERT_EQ(396u, getFileSize(filenameOutput));
+    ASSERT_LE(396u, getFileSize(filenameOutput));       // OpenEXR 2
+    ASSERT_LE(      getFileSize(filenameOutput), 440u); // OpenEXR 3.2+
     const Mat img2 = cv::imread(filenameOutput, IMREAD_UNCHANGED);
     ASSERT_EQ(img2.type(), img.type());
     ASSERT_EQ(img2.size(), img.size());
@@ -199,7 +200,11 @@ TEST(Imgcodecs_EXR, read_YC_changeDepth)
 
     cvtColor(img_rgb, img_rgb, COLOR_RGB2BGR);
 
-    EXPECT_TRUE(cvtest::norm(img, img_rgb, NORM_INF) == 0);
+    // See https://github.com/opencv/opencv/issues/26705
+    // If ALGO_HINT_ACCURATE is set, norm should be 0.
+    // If ALGO_HINT_APPROX is set,   norm should be 1(or 0).
+    EXPECT_LE(cvtest::norm(img, img_rgb, NORM_INF),
+             (cv::getDefaultAlgorithmHint() == ALGO_HINT_ACCURATE)?0:1);
 
     // Cannot test writing, EXR encoder doesn't support 8U depth
 }

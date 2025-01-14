@@ -191,11 +191,6 @@ if(CV_GCC OR CV_CLANG OR CV_ICX)
   endif()
   add_extra_compiler_option(-fdiagnostics-show-option)
 
-  # The -Wno-long-long is required in 64bit systems when including system headers.
-  if(X86_64)
-    add_extra_compiler_option(-Wno-long-long)
-  endif()
-
   # We need pthread's, unless we have explicitly disabled multi-thread execution.
   if(NOT OPENCV_DISABLE_THREAD_SUPPORT
       AND (
@@ -407,6 +402,14 @@ if(NOT OPENCV_SKIP_LINK_NO_UNDEFINED)
       set(OPENCV_EXTRA_MODULE_LINKER_FLAGS "${OPENCV_EXTRA_MODULE_LINKER_FLAGS} ${_option}")
     endif()
   endif()
+endif()
+
+# For 16k pages support with NDK prior 27
+# Details: https://developer.android.com/guide/practices/page-sizes?hl=en
+if(ANDROID AND ANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES AND (ANDROID_ABI STREQUAL arm64-v8a OR ANDROID_ABI STREQUAL x86_64))
+ set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-z,max-page-size=16384")
+ set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-z,max-page-size=16384")
+ set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -Wl,-z,max-page-size=16384")
 endif()
 
 # combine all "extra" options

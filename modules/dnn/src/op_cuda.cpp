@@ -108,3 +108,18 @@ void Net::Impl::initCUDABackend(const std::vector<LayerPin>& blobsToKeep_)
 CV__DNN_INLINE_NS_END
 }}  // namespace cv::dnn
 #endif  // HAVE_CUDA
+
+namespace cv { namespace dnn {
+
+bool haveCUDA()
+{
+#ifdef HAVE_CUDA
+    int dev = 0;
+    static bool ret = (cudaGetDevice(&dev) == cudaSuccess);
+    return ret;
+#else
+    return false;
+#endif
+}
+
+}}  // namespace cv::dnn

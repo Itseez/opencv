@@ -2108,7 +2108,7 @@ public:
         switch (prop)
         {
         case cv::WND_PROP_FULLSCREEN:
-            if (value != cv::WINDOW_NORMAL && value != cv::WINDOW_FULLSCREEN)  // bad arg
+            if ((int)value != cv::WINDOW_NORMAL && (int)value != cv::WINDOW_FULLSCREEN)  // bad arg
                 break;
             setModeWindow_(window, value);
             return true;

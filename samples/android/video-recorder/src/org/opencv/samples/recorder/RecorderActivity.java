@@ -57,7 +57,6 @@ public class RecorderActivity extends CameraActivity implements CvCameraViewList
     private VideoWriter mVideoWriter = null;
     private VideoCapture mVideoCapture = null;
     private Mat mVideoFrame;
-    private Mat mRenderFrame;
 
     public RecorderActivity() {
         Log.i(TAG, "Instantiated new " + this.getClass());
@@ -122,7 +121,6 @@ public class RecorderActivity extends CameraActivity implements CvCameraViewList
         mTriggerButton.setText("Start Camera");
 
         mVideoFrame.release();
-        mRenderFrame.release();
     }
 
     @Override
@@ -132,7 +130,6 @@ public class RecorderActivity extends CameraActivity implements CvCameraViewList
         super.onResume();
 
         mVideoFrame = new Mat();
-        mRenderFrame = new Mat();
 
         changeStatus();
     }
@@ -167,16 +164,15 @@ public class RecorderActivity extends CameraActivity implements CvCameraViewList
     {
         Log.d(TAG, "Camera frame arrived");
 
-        Mat rgbMat = inputFrame.rgba();
+        mVideoFrame = inputFrame.rgba();
 
-        Log.d(TAG, "Size: " + rgbMat.width() + "x" + rgbMat.height());
+        Log.d(TAG, "Size: " + mVideoFrame.width() + "x" + mVideoFrame.height());
 
         if (mVideoWriter != null && mVideoWriter.isOpened()) {
-            Imgproc.cvtColor(rgbMat, mVideoFrame, Imgproc.COLOR_RGBA2BGR);
             mVideoWriter.write(mVideoFrame);
         }
 
-        return rgbMat;
+        return mVideoFrame;
     }
 
     @Override
@@ -294,10 +290,14 @@ public class RecorderActivity extends CameraActivity implements CvCameraViewList
             mVideoCapture = new VideoCapture(mVideoFilename, Videoio.CAP_OPENCV_MJPEG);
         }
 
-        if (!mVideoCapture.isOpened()) {
+        if (mVideoCapture == null || !mVideoCapture.isOpened()) {
             Log.e(TAG, "Can't open video");
             Toast.makeText(this, "Can't open file " + mVideoFilename, Toast.LENGTH_SHORT).show();
             return false;
+        }
+
+        if (!mUseBuiltInMJPG){
+            mVideoCapture.set(Videoio.CAP_PROP_FOURCC, VideoWriter.fourcc('R','G','B','4'));
         }
 
         Toast.makeText(this, "Starting playback from file " + mVideoFilename, Toast.LENGTH_SHORT).show();
@@ -315,11 +315,14 @@ public class RecorderActivity extends CameraActivity implements CvCameraViewList
                     }
                     return;
                 }
-                // VideoCapture with CAP_ANDROID generates RGB frames instead of BGR
-                // https://github.com/opencv/opencv/issues/24687
-                Imgproc.cvtColor(mVideoFrame, mRenderFrame, mUseBuiltInMJPG ? Imgproc.COLOR_BGR2RGBA: Imgproc.COLOR_RGB2RGBA);
-                Bitmap bmp = Bitmap.createBitmap(mRenderFrame.cols(), mRenderFrame.rows(), Bitmap.Config.ARGB_8888);
-                Utils.matToBitmap(mRenderFrame, bmp);
+
+                // MJPEG codec will output BGR only. So we need to convert to RGBA.
+                if (mUseBuiltInMJPG) {
+                    Imgproc.cvtColor(mVideoFrame, mVideoFrame, Imgproc.COLOR_BGR2RGBA);
+                }
+
+                Bitmap bmp = Bitmap.createBitmap(mVideoFrame.cols(), mVideoFrame.rows(), Bitmap.Config.ARGB_8888);
+                Utils.matToBitmap(mVideoFrame, bmp);
                 mImageView.setImageBitmap(bmp);
                 Handler h = new Handler();
                 h.postDelayed(this, 33);

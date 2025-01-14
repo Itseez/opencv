@@ -113,16 +113,9 @@ void CvCapture_Images::close()
 
 bool CvCapture_Images::grabFrame()
 {
-    cv::String filename;
-    if (length == 1)
-        if (currentframe < length)
-            filename = filename_pattern;
-        else
-        {
-            return false;
-        }
-    else
-        filename = cv::format(filename_pattern.c_str(), (int)(firstframe + currentframe));
+    if (length == 1 && currentframe >= length)
+        return false;
+    const cv::String filename = cv::format(filename_pattern.c_str(), (int)(firstframe + currentframe));
     CV_Assert(!filename.empty());
 
     if (grabbedInOpen)

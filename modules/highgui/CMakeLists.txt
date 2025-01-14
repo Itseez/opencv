@@ -83,6 +83,7 @@ if(WITH_WAYLAND AND HAVE_WAYLAND)
     endif()
   endif()
 
+  ocv_module_include_directories(${WAYLAND_CLIENT_INCLUDE_DIRS} ${XKBCOMMON_INCLUDE_DIRS})
 elseif(HAVE_QT)
   set(OPENCV_HIGHGUI_BUILTIN_BACKEND "QT${QT_VERSION_MAJOR}")
   add_definitions(-DHAVE_QT)

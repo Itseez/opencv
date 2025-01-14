@@ -45,6 +45,10 @@ typedef perf::TestBaseWithParam<Size_MatType_BorderType_t> Size_MatType_BorderTy
 typedef tuple<Size, int, BorderType3x3> Size_ksize_BorderType_t;
 typedef perf::TestBaseWithParam<Size_ksize_BorderType_t> Size_ksize_BorderType;
 
+typedef tuple<Size, MatType, BorderType, int> Size_MatType_BorderType_ksize_t;
+typedef perf::TestBaseWithParam<Size_MatType_BorderType_ksize_t> Size_MatType_BorderType_ksize;
+
+
 PERF_TEST_P(Size_MatType_BorderType3x3, gaussianBlur3x3,
             testing::Combine(
                 testing::Values(szODD, szQVGA, szVGA, sz720p),
@@ -114,24 +118,27 @@ PERF_TEST_P(Size_MatType_BorderType, blur16x16,
     SANITY_CHECK(dst, eps);
 }
 
-PERF_TEST_P(Size_MatType_BorderType3x3, box3x3,
+PERF_TEST_P(Size_MatType_BorderType_ksize, box,
             testing::Combine(
                 testing::Values(szODD, szQVGA, szVGA, sz720p),
                 testing::Values(CV_8UC1, CV_16SC1, CV_32SC1, CV_32FC1, CV_32FC3),
-                BorderType3x3::all()
+                BorderType::all(),
+                testing::Values(3, 5)
                 )
             )
 {
-    Size size = get<0>(GetParam());
-    int type = get<1>(GetParam());
-    BorderType3x3 btype = get<2>(GetParam());
+    auto p = GetParam();
+    Size       size  = get<0>(p);
+    int        type  = get<1>(p);
+    BorderType btype = get<2>(p);
+    int        ksize = get<3>(p);
 
     Mat src(size, type);
     Mat dst(size, type);
 
     declare.in(src, WARMUP_RNG).out(dst);
 
-    TEST_CYCLE() boxFilter(src, dst, -1, Size(3,3), Point(-1,-1), false, btype);
+    TEST_CYCLE() boxFilter(src, dst, -1, Size(ksize, ksize), Point(-1,-1), false, btype);
 
     SANITY_CHECK(dst, 1e-6, ERROR_RELATIVE);
 }
@@ -158,17 +165,20 @@ PERF_TEST_P(Size_ksize_BorderType, box_CV8U_CV16U,
     SANITY_CHECK(dst, 1e-6, ERROR_RELATIVE);
 }
 
-PERF_TEST_P(Size_MatType_BorderType3x3, box3x3_inplace,
+PERF_TEST_P(Size_MatType_BorderType_ksize, box_inplace,
             testing::Combine(
                 testing::Values(szODD, szQVGA, szVGA, sz720p),
                 testing::Values(CV_8UC1, CV_16SC1, CV_32SC1, CV_32FC1, CV_32FC3),
-                BorderType3x3::all()
+                BorderType::all(),
+                testing::Values(3, 5)
                 )
             )
 {
-    Size size = get<0>(GetParam());
-    int type = get<1>(GetParam());
-    BorderType3x3 btype = get<2>(GetParam());
+    auto p = GetParam();
+    Size       size  = get<0>(p);
+    int        type  = get<1>(p);
+    BorderType btype = get<2>(p);
+    int        ksize = get<3>(p);
 
     Mat src(size, type);
     Mat dst(size, type);
@@ -179,7 +189,7 @@ PERF_TEST_P(Size_MatType_BorderType3x3, box3x3_inplace,
     {
         src.copyTo(dst);
         startTimer();
-        boxFilter(dst, dst, -1, Size(3,3), Point(-1,-1), false, btype);
+        boxFilter(dst, dst, -1, Size(ksize, ksize), Point(-1,-1), false, btype);
         stopTimer();
     }
 

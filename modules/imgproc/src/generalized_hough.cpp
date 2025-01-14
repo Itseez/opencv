@@ -692,7 +692,11 @@ namespace
         getContourPoints(edges, dx, dy, points);
 
         features.resize(levels_ + 1);
-        std::for_each(features.begin(), features.end(), [=](std::vector<Feature>& e) { e.clear(); e.reserve(maxBufferSize_); });
+        const size_t maxBufferSize = maxBufferSize_;
+        std::for_each(features.begin(), features.end(), [maxBufferSize](std::vector<Feature>& e) {
+            e.clear();
+            e.reserve(maxBufferSize);
+        });
 
         for (size_t i = 0; i < points.size(); ++i)
         {

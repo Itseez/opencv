@@ -99,7 +99,7 @@ gradle.afterProject { project ->
         // Android Gradle Plugin (AGP) 3.5+ is required
         // https://github.com/android/ndk-samples/wiki/Configure-NDK-Path
         def isNdkVersionSupported = project.android.metaClass.getProperties().find { it.name == 'ndkVersion' } != null
-        if ((false || opencv_strict_build_configuration) && isNdkVersionSupported) {
+        if (opencv_strict_build_configuration && isNdkVersionSupported) {
             gradle.println("Override ndkVersion for the project ${project.name}")
             project.android {
                 ndkVersion '@ANDROID_NDK_REVISION@'

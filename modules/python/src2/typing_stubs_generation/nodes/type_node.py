@@ -179,8 +179,10 @@ class AnyTypeNode(TypeNode):
 class PrimitiveTypeNode(TypeNode):
     """Type node representing a primitive built-in types e.g. int, float, str.
     """
-    def __init__(self, ctype_name: str, typename: Optional[str] = None) -> None:
-        super().__init__(ctype_name)
+    def __init__(self, ctype_name: str,
+                 typename: Optional[str] = None,
+                 required_modules: Tuple[str, ...] = ()) -> None:
+        super().__init__(ctype_name, required_modules)
         self._typename = typename if typename is not None else ctype_name
 
     @property
@@ -188,28 +190,32 @@ class PrimitiveTypeNode(TypeNode):
         return self._typename
 
     @classmethod
-    def int_(cls, ctype_name: Optional[str] = None):
+    def int_(cls, ctype_name: Optional[str] = None,
+             required_modules: Tuple[str, ...] = ()):
         if ctype_name is None:
             ctype_name = "int"
-        return PrimitiveTypeNode(ctype_name, typename="int")
+        return PrimitiveTypeNode(ctype_name, typename="int", required_modules=required_modules)
 
     @classmethod
-    def float_(cls, ctype_name: Optional[str] = None):
+    def float_(cls, ctype_name: Optional[str] = None,
+               required_modules: Tuple[str, ...] = ()):
         if ctype_name is None:
             ctype_name = "float"
-        return PrimitiveTypeNode(ctype_name, typename="float")
+        return PrimitiveTypeNode(ctype_name, typename="float", required_modules=required_modules)
 
     @classmethod
-    def bool_(cls, ctype_name: Optional[str] = None):
+    def bool_(cls, ctype_name: Optional[str] = None,
+              required_modules: Tuple[str, ...] = ()):
         if ctype_name is None:
             ctype_name = "bool"
-        return PrimitiveTypeNode(ctype_name, typename="bool")
+        return PrimitiveTypeNode(ctype_name, typename="bool", required_modules=required_modules)
 
     @classmethod
-    def str_(cls, ctype_name: Optional[str] = None):
+    def str_(cls, ctype_name: Optional[str] = None,
+             required_modules: Tuple[str, ...] = ()):
         if ctype_name is None:
             ctype_name = "string"
-        return PrimitiveTypeNode(ctype_name, "str")
+        return PrimitiveTypeNode(ctype_name, "str", required_modules=required_modules)
 
 
 class AliasRefTypeNode(TypeNode):

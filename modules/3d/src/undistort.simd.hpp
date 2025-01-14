@@ -259,8 +259,8 @@ public:
                 double v = fy*invProj*vecTilt(1) + v0;
                 if( m1type == CV_16SC2 )
                 {
-                    int iu = saturate_cast<int>(u*INTER_TAB_SIZE);
-                    int iv = saturate_cast<int>(v*INTER_TAB_SIZE);
+                    int iu = saturate_cast<int>(u*static_cast<double>(INTER_TAB_SIZE));
+                    int iv = saturate_cast<int>(v*static_cast<double>(INTER_TAB_SIZE));
                     m1[j*2] = (short)(iu >> INTER_BITS);
                     m1[j*2+1] = (short)(iv >> INTER_BITS);
                     m2[j] = (ushort)((iv & (INTER_TAB_SIZE-1))*INTER_TAB_SIZE + (iu & (INTER_TAB_SIZE-1)));

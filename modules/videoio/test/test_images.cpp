@@ -285,6 +285,21 @@ TEST(videoio_images, extract_pattern)
     EXPECT_THROW(cv::icvExtractPattern("1.png", NULL), cv::Exception);
 }
 
+TEST(videoio_images, bug_26457)
+{
+    ImageCollection col;
+    col.generate(1u);
+    ASSERT_EQ(col.getCount(), 1u);
+
+    VideoCapture cap(col.getFirstFilename(), CAP_IMAGES);
+    ASSERT_TRUE(cap.isOpened());
+
+    Mat img;
+    const bool read_res = cap.read(img);
+    EXPECT_TRUE(read_res);
+    EXPECT_MAT_N_DIFF(img, col.getFirstFrame(), 0);
+}
+
 // TODO: should writer overwrite files?
 // TODO: is clamping good for seeking?
 // TODO: missing files? E.g. 3, 4, 6, 7, 8 (should it finish OR jump over OR return empty frame?)

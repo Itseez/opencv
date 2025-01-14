@@ -43,6 +43,7 @@
 
 #include "grfmt_base.hpp"
 #include "bitstrm.hpp"
+#include <opencv2/core/utils/logger.hpp>
 
 namespace cv
 {
@@ -139,7 +140,22 @@ bool BaseImageEncoder::setDestination( std::vector<uchar>& buf )
     return true;
 }
 
-bool BaseImageEncoder::writemulti(const std::vector<Mat>&, const std::vector<int>& )
+bool BaseImageEncoder::writemulti(const std::vector<Mat>& img_vec, const std::vector<int>& params)
+{
+    if(img_vec.size() > 1)
+        CV_LOG_INFO(NULL, "Multi page image will be written as animation with 1 second frame duration.");
+
+    Animation animation;
+    animation.frames = img_vec;
+
+    for (size_t i = 0; i < animation.frames.size(); i++)
+    {
+        animation.durations.push_back(1000);
+    }
+    return writeanimation(animation, params);
+}
+
+bool BaseImageEncoder::writeanimation(const Animation&, const std::vector<int>& )
 {
     return false;
 }

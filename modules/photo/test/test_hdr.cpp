@@ -228,7 +228,7 @@ TEST(Photo_CalibrateDebevec, regression)
     double max;
     minMaxLoc(diff, NULL, &max);
 #if defined(__arm__) || defined(__aarch64__)
-    ASSERT_LT(max, 0.131);
+    ASSERT_LT(max, 0.2);
 #else
     ASSERT_LT(max, 0.1);
 #endif

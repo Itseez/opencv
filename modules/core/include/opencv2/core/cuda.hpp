@@ -413,8 +413,9 @@ public:
     data, which means that no data is copied. This operation is very efficient and can be used to
     process external data using OpenCV functions. The external data is not automatically deallocated, so
     you should take care of it.
-    @param step Array of _size.size()-1 steps in case of a multi-dimensional array (the last step is always
-    set to the element size). If not specified, the matrix is assumed to be continuous.
+    @param step Array of _size.size() or _size.size()-1 steps in case of a multi-dimensional array
+    (if specified, the last step must be equal to the element size, otherwise it will be added as such).
+    If not specified, the matrix is assumed to be continuous.
     */
     GpuMatND(SizeArray size, int type, void* data, StepArray step = StepArray());
 

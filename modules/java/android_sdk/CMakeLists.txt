@@ -20,6 +20,11 @@ set(SOURSE_SETS_JAVA_SRC_DIRS "'java/src'")
 set(SOURSE_SETS_RES_SRC_DIRS "'java/res'")
 set(SOURSE_SETS_MANIFEST_SRC_FILE "'java/AndroidManifest.xml'")
 set(BUILD_GRADLE_COMPILE_OPTIONS "
+    android {
+        buildFeatures {
+            buildConfig true
+        }
+    }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_${ANDROID_GRADLE_JAVA_VERSION_INIT}
         targetCompatibility JavaVersion.VERSION_${ANDROID_GRADLE_JAVA_VERSION_INIT}
@@ -183,7 +188,6 @@ set(SOURSE_SETS_JNI_LIBS_SRC_DIRS "'../../jni'")
 set(SOURSE_SETS_JAVA_SRC_DIRS "'src'")
 set(SOURSE_SETS_RES_SRC_DIRS "'${OpenCV_SOURCE_DIR}/modules/java/android_sdk/android_gradle_lib/res'")
 set(SOURSE_SETS_MANIFEST_SRC_FILE "'AndroidManifest.xml'")
-set(BUILD_GRADLE_COMPILE_OPTIONS "")
 set(MAVEN_PUBLISH_PLUGIN_DECLARATION "")
 set(BUILD_GRADLE_ANDROID_PUBLISHING_CONFIG "")
 set(BUILD_GRADLE_PUBLISHING_CONFIG "")

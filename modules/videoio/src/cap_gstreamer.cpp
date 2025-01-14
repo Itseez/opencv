@@ -961,7 +961,7 @@ bool GStreamerCapture::retrieveVideoFrame(int, OutputArray dst)
     // regular strides/offsets if no meta is present.
     GstVideoFrame frame = {};
 #if FULL_GST_VERSION >= VERSION_NUM(1,6,0)
-    GstMapFlags flags = static_cast<GstMapFlags>(GST_MAP_READ | GST_VIDEO_FRAME_MAP_FLAG_NO_REF);
+    GstMapFlags flags = static_cast<GstMapFlags>(+GST_MAP_READ | GST_VIDEO_FRAME_MAP_FLAG_NO_REF);
 #else
     GstMapFlags flags = static_cast<GstMapFlags>(GST_MAP_READ);
 #endif

@@ -47,7 +47,12 @@ namespace {
 
 #define DECLARE_STATIC_BACKEND(cap, name, mode, createCaptureFile, createCaptureCamera, createWriter) \
 { \
-    cap, (BackendMode)(mode), 1000, name, createBackendFactory(createCaptureFile, createCaptureCamera, createWriter) \
+    cap, (BackendMode)(mode), 1000, name, createBackendFactory(createCaptureFile, createCaptureCamera, 0, createWriter) \
+},
+
+#define DECLARE_STATIC_BACKEND_WITH_STREAM_SUPPORT(cap, name, mode, createCaptureStream) \
+{ \
+    cap, (BackendMode)(mode), 1000, name, createBackendFactory(0, 0, createCaptureStream, 0) \
 },
 
 /** Ordering guidelines:
@@ -62,8 +67,9 @@ static const struct VideoBackendInfo builtin_backends[] =
 {
 #ifdef HAVE_FFMPEG
     DECLARE_STATIC_BACKEND(CAP_FFMPEG, "FFMPEG", MODE_CAPTURE_BY_FILENAME | MODE_WRITER, cvCreateFileCapture_FFMPEG_proxy, 0, cvCreateVideoWriter_FFMPEG_proxy)
+    DECLARE_STATIC_BACKEND_WITH_STREAM_SUPPORT(CAP_FFMPEG, "FFMPEG", MODE_CAPTURE_BY_STREAM, cvCreateStreamCapture_FFMPEG_proxy)
 #elif defined(ENABLE_PLUGINS) || defined(HAVE_FFMPEG_WRAPPER)
-    DECLARE_DYNAMIC_BACKEND(CAP_FFMPEG, "FFMPEG", MODE_CAPTURE_BY_FILENAME | MODE_WRITER)
+    DECLARE_DYNAMIC_BACKEND(CAP_FFMPEG, "FFMPEG", MODE_CAPTURE_BY_FILENAME | MODE_CAPTURE_BY_STREAM | MODE_WRITER)
 #endif
 
 #ifdef HAVE_GSTREAMER
@@ -90,8 +96,9 @@ static const struct VideoBackendInfo builtin_backends[] =
 
 #ifdef HAVE_MSMF
     DECLARE_STATIC_BACKEND(CAP_MSMF, "MSMF", MODE_CAPTURE_ALL | MODE_WRITER, cvCreateCapture_MSMF, cvCreateCapture_MSMF, cvCreateVideoWriter_MSMF)
+    DECLARE_STATIC_BACKEND_WITH_STREAM_SUPPORT(CAP_MSMF, "MSMF", MODE_CAPTURE_BY_STREAM, cvCreateCapture_MSMF)
 #elif defined(ENABLE_PLUGINS) && defined(_WIN32)
-    DECLARE_DYNAMIC_BACKEND(CAP_MSMF, "MSMF", MODE_CAPTURE_ALL | MODE_WRITER)
+    DECLARE_DYNAMIC_BACKEND(CAP_MSMF, "MSMF", MODE_CAPTURE_ALL | MODE_CAPTURE_BY_STREAM | MODE_WRITER)
 #endif
 
 #ifdef HAVE_DSHOW
@@ -324,6 +331,17 @@ public:
         }
         return result;
     }
+    inline std::vector<VideoBackendInfo> getAvailableBackends_CaptureByStream() const
+    {
+        std::vector<VideoBackendInfo> result;
+        for (size_t i = 0; i < enabledBackends.size(); i++)
+        {
+            const VideoBackendInfo& info = enabledBackends[i];
+            if (info.mode & MODE_CAPTURE_BY_STREAM)
+                result.push_back(info);
+        }
+        return result;
+    }
     inline std::vector<VideoBackendInfo> getAvailableBackends_Writer() const
     {
         std::vector<VideoBackendInfo> result;
@@ -349,6 +367,11 @@ std::vector<VideoBackendInfo> getAvailableBackends_CaptureByIndex()
 std::vector<VideoBackendInfo> getAvailableBackends_CaptureByFilename()
 {
     const std::vector<VideoBackendInfo> result = VideoBackendRegistry::getInstance().getAvailableBackends_CaptureByFilename();
+    return result;
+}
+std::vector<VideoBackendInfo> getAvailableBackends_CaptureByStream()
+{
+    const std::vector<VideoBackendInfo> result = VideoBackendRegistry::getInstance().getAvailableBackends_CaptureByStream();
     return result;
 }
 std::vector<VideoBackendInfo> getAvailableBackends_Writer()
@@ -419,6 +442,15 @@ std::vector<VideoCaptureAPIs> getStreamBackends()
         result.push_back((VideoCaptureAPIs)backends[i].id);
     return result;
 
+}
+
+std::vector<VideoCaptureAPIs> getStreamBufferedBackends()
+{
+    const std::vector<VideoBackendInfo> backends = VideoBackendRegistry::getInstance().getAvailableBackends_CaptureByStream();
+    std::vector<VideoCaptureAPIs> result;
+    for (size_t i = 0; i < backends.size(); i++)
+        result.push_back((VideoCaptureAPIs)backends[i].id);
+    return result;
 }
 
 std::vector<VideoCaptureAPIs> getWriterBackends()
@@ -498,6 +530,24 @@ std::string getStreamBackendPluginVersion(VideoCaptureAPIs api,
     CV_Error(Error::StsError, "Unknown or wrong backend ID");
 }
 
+std::string getStreamBufferedBackendPluginVersion(VideoCaptureAPIs api,
+    CV_OUT int& version_ABI,
+    CV_OUT int& version_API
+)
+{
+    const std::vector<VideoBackendInfo> backends = VideoBackendRegistry::getInstance().getAvailableBackends_CaptureByStream();
+    for (size_t i = 0; i < backends.size(); i++)
+    {
+        const VideoBackendInfo& info = backends[i];
+        if (api == info.id)
+        {
+            CV_Assert(!info.backendFactory.empty());
+            CV_Assert(!info.backendFactory->isBuiltIn());
+            return getCapturePluginVersion(info.backendFactory, version_ABI, version_API);
+        }
+    }
+    CV_Error(Error::StsError, "Unknown or wrong backend ID");
+}
 
 /** @brief Returns description and ABI/API version of videoio plugin's writer interface */
 std::string getWriterBackendPluginVersion(VideoCaptureAPIs api,

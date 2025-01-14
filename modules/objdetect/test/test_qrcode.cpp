@@ -528,7 +528,7 @@ TEST(Objdetect_QRCode_decode, decode_regression_21929)
     Mat qrImg;
     QRCodeEncoder::Params params;
     params.version = 8; // 49x49
-    Ptr<QRCodeEncoder> qrcode_enc = cv::QRCodeEncoder::create(params);;
+    Ptr<QRCodeEncoder> qrcode_enc = cv::QRCodeEncoder::create(params);
     qrcode_enc->encode(expect_msg, qrImg);
 
     Mat src;
@@ -552,7 +552,7 @@ TEST(Objdetect_QRCode_decode, decode_regression_version_25)
     Mat qrImg;
     QRCodeEncoder::Params params;
     params.version = 25; // 117x117
-    Ptr<QRCodeEncoder> qrcode_enc = cv::QRCodeEncoder::create(params);;
+    Ptr<QRCodeEncoder> qrcode_enc = cv::QRCodeEncoder::create(params);
     qrcode_enc->encode(expect_msg, qrImg);
 
     Mat src;
