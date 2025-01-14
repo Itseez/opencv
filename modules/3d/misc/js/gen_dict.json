@@ -15,6 +15,7 @@
             "undistort",
             "fisheye_initUndistortRectifyMap",
             "fisheye_projectPoints"
-        ]
+        ],
+        "UsacParams": ["UsacParams"]
     }
 }

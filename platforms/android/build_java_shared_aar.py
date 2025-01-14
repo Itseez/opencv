@@ -47,6 +47,14 @@ def get_opencv_version(opencv_sdk_path):
         revision = re.search(r'^#define\W+CV_VERSION_REVISION\W+(\d+)$', data, re.MULTILINE).group(1)
         return "%(major)s.%(minor)s.%(revision)s" % locals()
 
+def get_ndk_version(ndk_path):
+    props_path = path.join(ndk_path, "source.properties")
+    with open(props_path, "rt") as f:
+        data = f.read()
+        version = re.search(r'Pkg\.Revision\W+=\W+(\d+\.\d+\.\d+)', data).group(1)
+        return version.strip()
+
+
 def get_compiled_aar_path(path1, path2):
     if path.exists(path1):
         return path1
@@ -70,6 +78,8 @@ def cleanup(paths_to_remove):
 
 def main(args):
     opencv_version = get_opencv_version(args.opencv_sdk_path)
+    ndk_version = get_ndk_version(args.ndk_location)
+    print("Detected ndk_version:", ndk_version)
     abis = os.listdir(path.join(args.opencv_sdk_path, "sdk/native/libs"))
     lib_name = "opencv_java" + opencv_version.split(".")[0]
     final_aar_path = FINAL_AAR_PATH_TEMPLATE.replace("<OPENCV_VERSION>", opencv_version)
@@ -90,6 +100,7 @@ def main(args):
                    "LIB_TYPE": "c++_shared",
                    "PACKAGE_NAME": MAVEN_PACKAGE_NAME,
                    "OPENCV_VERSION": opencv_version,
+                   "NDK_VERSION": ndk_version,
                    "COMPILE_SDK": args.android_compile_sdk,
                    "MIN_SDK": args.android_min_sdk,
                    "TARGET_SDK": args.android_target_sdk,
@@ -170,10 +181,10 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Builds AAR with Java and shared C++ libs from OpenCV SDK")
     parser.add_argument('opencv_sdk_path')
-    parser.add_argument('--android_compile_sdk', default="31")
+    parser.add_argument('--android_compile_sdk', default="34")
     parser.add_argument('--android_min_sdk', default="21")
-    parser.add_argument('--android_target_sdk', default="31")
-    parser.add_argument('--java_version', default="1_8")
+    parser.add_argument('--android_target_sdk', default="34")
+    parser.add_argument('--java_version', default="17")
     parser.add_argument('--ndk_location', default="")
     parser.add_argument('--cmake_location', default="")
     parser.add_argument('--offline', action="store_true", help="Force Gradle use offline mode")

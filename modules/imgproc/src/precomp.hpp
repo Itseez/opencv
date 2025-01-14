@@ -61,6 +61,7 @@
 #include <limits.h>
 #include <float.h>
 #include <stack>
+#include <numeric>
 
 #define GET_OPTIMIZED(func) (func)
 

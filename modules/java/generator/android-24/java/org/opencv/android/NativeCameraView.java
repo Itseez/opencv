@@ -2,6 +2,7 @@ package org.opencv.android;
 
 import org.opencv.core.Mat;
 import org.opencv.core.Size;
+import org.opencv.core.MatOfInt;
 
 import org.opencv.imgproc.Imgproc;
 
@@ -123,8 +124,11 @@ public class NativeCameraView extends CameraBridgeViewBase {
                 return false;
             }
 
+            MatOfInt params = new MatOfInt(Videoio.CAP_PROP_FRAME_WIDTH, width,
+                                           Videoio.CAP_PROP_FRAME_HEIGHT, height);
+
             Log.d(TAG, "Try to open camera with index " + localCameraIndex);
-            mCamera = new VideoCapture(localCameraIndex, Videoio.CAP_ANDROID);
+            mCamera = new VideoCapture(localCameraIndex, Videoio.CAP_ANDROID, params);
 
             if (mCamera == null)
                 return false;
@@ -138,9 +142,6 @@ public class NativeCameraView extends CameraBridgeViewBase {
                     cameraInfo.orientation);
 
             mFrame = new RotatedCameraFrame(new NativeCameraFrame(mCamera), frameRotation);
-
-            mCamera.set(Videoio.CAP_PROP_FRAME_WIDTH, width);
-            mCamera.set(Videoio.CAP_PROP_FRAME_HEIGHT, height);
 
             if (frameRotation % 180 == 0) {
                 mFrameWidth = (int) mCamera.get(Videoio.CAP_PROP_FRAME_WIDTH);
@@ -181,10 +182,9 @@ public class NativeCameraView extends CameraBridgeViewBase {
 
         @Override
         public Mat rgba() {
-            mCapture.set(Videoio.CAP_PROP_FOURCC, VideoWriter.fourcc('R','G','B','3'));
-            mCapture.retrieve(mBgr);
-            Log.d(TAG, "Retrived frame with size " + mBgr.cols() + "x" + mBgr.rows() + " and channels: " + mBgr.channels());
-            Imgproc.cvtColor(mBgr, mRgba, Imgproc.COLOR_RGB2RGBA);
+            mCapture.set(Videoio.CAP_PROP_FOURCC, VideoWriter.fourcc('R','G','B','4'));
+            mCapture.retrieve(mRgba);
+            Log.d(TAG, "Retrieved frame with size " + mRgba.cols() + "x" + mRgba.rows() + " and channels: " + mRgba.channels());
             return mRgba;
         }
 
@@ -192,7 +192,7 @@ public class NativeCameraView extends CameraBridgeViewBase {
         public Mat gray() {
             mCapture.set(Videoio.CAP_PROP_FOURCC, VideoWriter.fourcc('G','R','E','Y'));
             mCapture.retrieve(mGray);
-            Log.d(TAG, "Retrived frame with size " + mGray.cols() + "x" + mGray.rows() + " and channels: " + mGray.channels());
+            Log.d(TAG, "Retrieved frame with size " + mGray.cols() + "x" + mGray.rows() + " and channels: " + mGray.channels());
             return mGray;
         }
 
@@ -200,20 +200,17 @@ public class NativeCameraView extends CameraBridgeViewBase {
             mCapture = capture;
             mGray = new Mat();
             mRgba = new Mat();
-            mBgr = new Mat();
         }
 
         @Override
         public void release() {
             if (mGray != null) mGray.release();
             if (mRgba != null) mRgba.release();
-            if (mBgr != null) mBgr.release();
         }
 
         private VideoCapture mCapture;
         private Mat mRgba;
         private Mat mGray;
-        private Mat mBgr;
     };
 
     private class CameraWorker implements Runnable {

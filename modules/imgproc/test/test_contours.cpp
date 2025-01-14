@@ -75,9 +75,9 @@ static void d2xy(int n, int d, int *x, int *y)
     }
 }
 
-TEST(Imgproc_FindContours, hilbert)
+static Mat draw_hilbert(int n = 64, int scale = 10)
 {
-    int n = 64, n2 = n*n, scale = 10, w = (n + 2)*scale;
+    int n2 = n*n, w = (n + 2)*scale;
     Point ofs(scale, scale);
     Mat img(w, w, CV_8U);
     img.setTo(Scalar::all(0));
@@ -91,12 +91,19 @@ TEST(Imgproc_FindContours, hilbert)
         p = q;
     }
     dilate(img, img, Mat());
+    return img;
+}
+
+TEST(Imgproc_FindContours, hilbert)
+{
+    Mat img = draw_hilbert();
     vector<vector<Point> > contours;
+
+    findContours(img, contours, noArray(), RETR_LIST, CHAIN_APPROX_NONE);
+    ASSERT_EQ(1, (int)contours.size());
+    ASSERT_EQ(78632, (int)contours[0].size());
+
     findContours(img, contours, noArray(), RETR_LIST, CHAIN_APPROX_SIMPLE);
-    img.setTo(Scalar::all(0));
-
-    drawContours(img, contours, 0, Scalar::all(255), 1);
-
     ASSERT_EQ(1, (int)contours.size());
     ASSERT_EQ(9832, (int)contours[0].size());
 }
@@ -168,6 +175,38 @@ TEST(Imgproc_FindContours, regression_4363_shared_nbd)
     }
 }
 
+TEST(Imgproc_DrawContours, regression_26264)
+{
+    Mat img = draw_hilbert(32);
+    img.push_back(~img);
+
+    for (int i = 50; i < 200; i += 17)
+    {
+        rectangle(img, Rect(i, i, img.cols - (i*2), img.rows - (i*2)), Scalar(0), 7);
+        rectangle(img, Rect(i, i, img.cols - (i*2), img.rows - (i*2)), Scalar(255), 1);
+    }
+
+    vector<vector<Point> > contours;
+    vector<Vec4i> hierarchy;
+    findContours(img, contours, hierarchy, RETR_TREE, CHAIN_APPROX_SIMPLE);
+    img.setTo(Scalar::all(0));
+    Mat img1 = img.clone();
+    Mat img2 = img.clone();
+    Mat img3 = img.clone();
+
+    int idx = 0;
+    while (idx >= 0)
+    {
+        drawContours(img, contours, idx, Scalar::all(255), FILLED, LINE_8, hierarchy);
+        drawContours(img2, contours, idx, Scalar::all(255), 1, LINE_8, hierarchy);
+        idx = hierarchy[idx][0];
+    }
+
+    drawContours(img1, contours, -1, Scalar::all(255), FILLED, LINE_8, hierarchy);
+    drawContours(img3, contours, -1, Scalar::all(255), 1, LINE_8, hierarchy);
+    ASSERT_EQ(0, cvtest::norm(img, img1, NORM_INF));
+    ASSERT_EQ(0, cvtest::norm(img2, img3, NORM_INF));
+}
 
 TEST(Imgproc_PointPolygonTest, regression_10222)
 {

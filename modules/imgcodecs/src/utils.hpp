@@ -137,7 +137,11 @@ uchar* FillGrayRow1( uchar* data, uchar* indices, int len, uchar* palette );
 
 CV_INLINE bool  isBigEndian( void )
 {
-    return (((const int*)"\0\x1\x2\x3\x4\x5\x6\x7")[0] & 255) != 0;
+#ifdef WORDS_BIGENDIAN
+    return true;
+#else
+    return false;
+#endif
 }
 
 }  // namespace

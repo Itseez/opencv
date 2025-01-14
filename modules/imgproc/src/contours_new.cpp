@@ -368,10 +368,6 @@ CNode& ContourScanner_::makeContour(schar& nbd_, const bool is_hole, const int x
     const Point start_pt(x - (is_hole ? 1 : 0), y);
 
     CNode& res = tree.newElem();
-    if (isChain)
-        res.body.codes.reserve(200);
-    else
-        res.body.pts.reserve(200);
     res.body.isHole = is_hole;
     res.body.isChain = isChain;
     res.body.origin = start_pt + offset;

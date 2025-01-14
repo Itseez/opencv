@@ -104,25 +104,6 @@ static const std::map<std::string, OpenVINOModelTestCaseInfo>& getOpenVINOTestMo
             "intel/age-gender-recognition-retail-0013/FP32/age-gender-recognition-retail-0013"
         }},
 #endif
-#if INF_ENGINE_RELEASE >= 2021020000
-        // OMZ: 2020.2
-        { "face-detection-0105", {
-            "intel/face-detection-0105/FP32/face-detection-0105",
-            "intel/face-detection-0105/FP16/face-detection-0105"
-        }},
-        { "face-detection-0106", {
-            "intel/face-detection-0106/FP32/face-detection-0106",
-            "intel/face-detection-0106/FP16/face-detection-0106"
-        }},
-#endif
-#if INF_ENGINE_RELEASE >= 2021040000
-        // OMZ: 2021.4
-        { "person-vehicle-bike-detection-2004", {
-            "intel/person-vehicle-bike-detection-2004/FP32/person-vehicle-bike-detection-2004",
-            "intel/person-vehicle-bike-detection-2004/FP16/person-vehicle-bike-detection-2004"
-            //"intel/person-vehicle-bike-detection-2004/FP16-INT8/person-vehicle-bike-detection-2004"
-        }},
-#endif
     };
 
     return g_models;
@@ -228,7 +209,12 @@ void runIE(Target target, const std::string& xmlPath, const std::string& binPath
     for (auto&& it : model->inputs())
     {
         auto type = it.get_element_type();
-        auto shape = it.get_shape();
+        auto shape_ = it.get_partial_shape();
+        if (shape_.is_dynamic())
+        {
+            FAIL() << "Model should not have dynamic shapes (" << it.get_any_name() << " => " << shape_ << ")";
+        }
+        auto shape = shape_.to_shape();
         auto& m = inputsMap[it.get_any_name()];
 
         auto tensor = ov::Tensor(type, shape);
@@ -265,10 +251,10 @@ void runIE(Target target, const std::string& xmlPath, const std::string& binPath
     for (const auto& it : model->outputs())
     {
         auto type = it.get_element_type();
-        auto shape = it.get_shape();
         auto& m = outputsMap[it.get_any_name()];
 
         auto tensor = infRequest.get_tensor(it);
+        auto shape = tensor.get_shape();
         if (type == ov::element::f32)
         {
             m.create(std::vector<int>(shape.begin(), shape.end()), CV_32F);
@@ -341,22 +327,9 @@ TEST_P(DNNTestOpenVINO, models)
     if (targetId == DNN_TARGET_MYRIAD && (false
             || modelName == "person-detection-retail-0013"  // ncDeviceOpen:1013 Failed to find booted device after boot
             || modelName == "age-gender-recognition-retail-0013"  // ncDeviceOpen:1013 Failed to find booted device after boot
-            || modelName == "face-detection-0105"  // get_element_type() must be called on a node with exactly one output
-            || modelName == "face-detection-0106"  // get_element_type() must be called on a node with exactly one output
-            || modelName == "person-vehicle-bike-detection-2004"  // 2021.4+: ncDeviceOpen:1013 Failed to find booted device after boot
         )
     )
         applyTestTag(CV_TEST_TAG_DNN_SKIP_IE_MYRIAD, CV_TEST_TAG_DNN_SKIP_IE_NGRAPH, CV_TEST_TAG_DNN_SKIP_IE_VERSION);
-    if (targetId == DNN_TARGET_OPENCL && (false
-            || modelName == "face-detection-0106"  // Operation: 2278 of type ExperimentalDetectronPriorGridGenerator(op::v6) is not supported
-        )
-    )
-        applyTestTag(CV_TEST_TAG_DNN_SKIP_IE_OPENCL, CV_TEST_TAG_DNN_SKIP_IE_NGRAPH, CV_TEST_TAG_DNN_SKIP_IE_VERSION);
-    if (targetId == DNN_TARGET_OPENCL_FP16 && (false
-            || modelName == "face-detection-0106"  // Operation: 2278 of type ExperimentalDetectronPriorGridGenerator(op::v6) is not supported
-        )
-    )
-        applyTestTag(CV_TEST_TAG_DNN_SKIP_IE_OPENCL_FP16, CV_TEST_TAG_DNN_SKIP_IE_NGRAPH, CV_TEST_TAG_DNN_SKIP_IE_VERSION);
 #endif
 
 #if INF_ENGINE_VER_MAJOR_GE(2020020000)
@@ -398,14 +371,6 @@ TEST_P(DNNTestOpenVINO, models)
 #if INF_ENGINE_VER_MAJOR_GE(2020010000)
     if (targetId == DNN_TARGET_CPU && checkHardwareSupport(CV_CPU_AVX_512F))
         eps = 1e-5;
-#endif
-#if INF_ENGINE_VER_MAJOR_GE(2021030000)
-    if (targetId == DNN_TARGET_CPU && modelName == "face-detection-0105")
-        eps = 2e-4;
-#endif
-#if INF_ENGINE_VER_MAJOR_GE(2021040000)
-    if (targetId == DNN_TARGET_CPU && modelName == "person-vehicle-bike-detection-2004")
-        eps = 1e-6;
 #endif
 
     EXPECT_EQ(ieOutputsMap.size(), cvOutputsMap.size());

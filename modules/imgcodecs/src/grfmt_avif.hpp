@@ -41,17 +41,12 @@ class AvifEncoder CV_FINAL : public BaseImageEncoder {
   ~AvifEncoder() CV_OVERRIDE;
 
   bool isFormatSupported(int depth) const CV_OVERRIDE;
-
   bool write(const Mat& img, const std::vector<int>& params) CV_OVERRIDE;
-
-  bool writemulti(const std::vector<Mat>& img_vec,
-                  const std::vector<int>& params) CV_OVERRIDE;
+  bool writeanimation(const Animation& animation, const std::vector<int>& params) CV_OVERRIDE;
 
   ImageEncoder newEncoder() const CV_OVERRIDE;
 
  private:
-  bool writeToOutput(const std::vector<Mat>& img_vec,
-                     const std::vector<int>& params);
   avifEncoder* encoder_;
 };
 

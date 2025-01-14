@@ -325,5 +325,51 @@ TEST(CV_ArucoDictionary, extendDictionary) {
     ASSERT_EQ(custom_dictionary.bytesList.rows, 150);
     ASSERT_EQ(cv::norm(custom_dictionary.bytesList, base_dictionary.bytesList.rowRange(0, 150)), 0.);
 }
+TEST(CV_ArucoBoardGenerateImage_RotationTest, HandlesRotatedMarkersWithoutBoundingBoxError)
+{
+    using namespace cv;
+    using namespace cv::aruco;
+    Dictionary dict = getPredefinedDictionary(DICT_4X4_50);
+    DetectorParameters detectorParams;
+    ArucoDetector detector(dict, detectorParams);
+    std::vector<float> angles = {0.0f, 45.0f, 90.0f, 135.0f};
+    for (auto angle_deg : angles)
+    {
+        float angle_rad = angle_deg * static_cast<float>(CV_PI) / 180.0f;
+        float c = cos(angle_rad);
+        float s = sin(angle_rad);
+        std::vector<Point3f> markerCorners(4);
+        markerCorners[0] = Point3f(0.f, 0.f, 0.f);
+        markerCorners[1] = Point3f(1.f, 0.f, 0.f);
+        markerCorners[2] = Point3f(1.f, 1.f, 0.f);
+        markerCorners[3] = Point3f(0.f, 1.f, 0.f);
+        for (auto &p : markerCorners)
+        {
+            float xNew = p.x * c - p.y * s;
+            float yNew = p.x * s + p.y * c;
+            p.x = xNew;
+            p.y = yNew;
+        }
+        std::vector<std::vector<Point3f>> allObjPoints{markerCorners};
+        std::vector<int> ids{0};
+        Board board(allObjPoints, dict, ids);
+        float markerSize = 1.0f;
+        float rotatedSize = markerSize * std::sqrt(2.0f);
+        int borderBits = 1;
+        int marginSize = 20;
+        int sidePixels = static_cast<int>((rotatedSize + 2.0f * borderBits) * 500) + 2 * marginSize;
+        Mat outImg;
+        Size outSize(sidePixels, sidePixels);
+        ASSERT_NO_THROW(board.generateImage(outSize, outImg, marginSize, borderBits))
+            << "board.generateImage() threw an exception at angle " << angle_deg;
+        std::vector<int> detectedIds;
+        std::vector<std::vector<Point2f>> detectedCorners;
+        detector.detectMarkers(outImg, detectedCorners, detectedIds);
+        ASSERT_EQ(detectedIds.size(), (size_t)1)
+            << "Failed to detect single marker at angle: " << angle_deg;
+        EXPECT_EQ(detectedIds[0], 0)
+            << "Marker ID mismatch at angle: " << angle_deg;
+    }
+}
 
 }} // namespace

@@ -235,6 +235,17 @@ bool  ExrDecoder::readData( Mat& img )
                                 ( (m_iscolor && !m_ischroma) || color) ? 3 : alphasupported ? 2 : 1 ); // number of channels to read may exceed channels in output img
     size_t xStride = floatsize * channelstoread;
 
+    // See https://github.com/opencv/opencv/issues/26705
+    // If ALGO_HINT_ACCURATE is set, read BGR and swap to RGB.
+    // If ALGO_HINT_APPROX is set,   read RGB directly.
+    bool doReadRGB = m_use_rgb;
+    bool doPostColorSwap = false; // After decoding, swap BGR to RGB
+    if(m_use_rgb && (getDefaultAlgorithmHint() == ALGO_HINT_ACCURATE) )
+    {
+        doReadRGB = false;
+        doPostColorSwap = true;
+    }
+
     AutoBuffer<char> copy_buffer;
 
     if( !justcopy )
@@ -373,7 +384,7 @@ bool  ExrDecoder::readData( Mat& img )
 
         if( m_iscolor )
         {
-            if (m_use_rgb)
+            if (doReadRGB)
             {
                 if( m_red && (m_red->xSampling != 1 || m_red->ySampling != 1) )
                     UpSample( data, channelstoread, step / xstep, m_red->xSampling, m_red->ySampling );
@@ -397,7 +408,7 @@ bool  ExrDecoder::readData( Mat& img )
 
         if( chromatorgb )
         {
-            if (m_use_rgb)
+            if (doReadRGB)
                 ChromaToRGB( (float *)data, m_height, channelstoread, step / xstep );
             else
                 ChromaToBGR( (float *)data, m_height, channelstoread, step / xstep );
@@ -424,7 +435,7 @@ bool  ExrDecoder::readData( Mat& img )
             {
                 if( chromatorgb )
                 {
-                    if (m_use_rgb)
+                    if (doReadRGB)
                         ChromaToRGB( (float *)buffer, 1, defaultchannels, step );
                     else
                         ChromaToBGR( (float *)buffer, 1, defaultchannels, step );
@@ -452,7 +463,7 @@ bool  ExrDecoder::readData( Mat& img )
         }
         if( color )
         {
-            if (m_use_rgb)
+            if (doReadRGB)
             {
                 if( m_red && (m_red->xSampling != 1 || m_red->ySampling != 1) )
                     UpSampleY( data, defaultchannels, step / xstep, m_red->ySampling );
@@ -476,6 +487,11 @@ bool  ExrDecoder::readData( Mat& img )
     }
 
     close();
+
+    if(doPostColorSwap)
+    {
+        cvtColor( img, img, cv::COLOR_BGR2RGB );
+    }
 
     return result;
 }

@@ -332,11 +332,13 @@ void Cloning::normalClone(const Mat &destination, const Mat &patch, Mat &binaryM
     switch(flag)
     {
         case NORMAL_CLONE:
+        case NORMAL_CLONE_WIDE:
             arrayProduct(patchGradientX, binaryMaskFloat, patchGradientX);
             arrayProduct(patchGradientY, binaryMaskFloat, patchGradientY);
             break;
 
         case MIXED_CLONE:
+        case MIXED_CLONE_WIDE:
         {
             AutoBuffer<int> maskIndices(n_elem_in_line);
             for (int i = 0; i < n_elem_in_line; ++i)
@@ -373,6 +375,7 @@ void Cloning::normalClone(const Mat &destination, const Mat &patch, Mat &binaryM
         break;
 
         case MONOCHROME_TRANSFER:
+        case MONOCHROME_TRANSFER_WIDE:
             Mat gray;
             cvtColor(patch, gray, COLOR_BGR2GRAY );
 

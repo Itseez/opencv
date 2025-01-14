@@ -94,7 +94,7 @@ TEST(Imgproc_FitEllipse_JavaCase, accuracy) {
     pts.push_back(Point2f(-1, -1)*scale+shift);
     pts.push_back(Point2f(1, -1)*scale+shift);
 
-    // check that we get almost vertical ellipse centered around (1, 3)
+    // check that we get almost circle centered around (0, 0)
     RotatedRect e = fitEllipse(pts);
     EXPECT_NEAR(e.center.x, 0, 0.01);
     EXPECT_NEAR(e.center.y, 0, 0.01);

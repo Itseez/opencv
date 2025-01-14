@@ -14,7 +14,8 @@
     "func_arg_fix" : {
         "VideoCapture" : {
             "(BOOL)open:(int)index apiPreference:(int)apiPreference" : { "open" : {"name" : "openWithIndex"} },
-            "(BOOL)open:(int)index apiPreference:(int)apiPreference params:(IntVector*)params" : { "open" : {"name" : "openWithIndexAndParameters"} }
+            "(BOOL)open:(int)index apiPreference:(int)apiPreference params:(IntVector*)params" : { "open" : {"name" : "openWithIndexAndParameters"} },
+            "(BOOL)open:(IStreamReader*)source apiPreference:(int)apiPreference params:(IntVector*)params" : { "open" : {"name" : "openWithStreamReader"} }
         }
     }
 }

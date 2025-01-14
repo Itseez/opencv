@@ -75,7 +75,7 @@ TEST(Photo_SeamlessClone_normal, regression)
     Point p;
     p.x = destination.size().width/2;
     p.y = destination.size().height/2;
-    seamlessClone(source, destination, mask, p, result, 1);
+    seamlessClone(source, destination, mask, p, result, NORMAL_CLONE);
 
     Mat reference = imread(reference_path);
     ASSERT_FALSE(reference.empty()) << "Could not load reference image " << reference_path;
@@ -88,7 +88,7 @@ TEST(Photo_SeamlessClone_normal, regression)
     EXPECT_LE(errorL1, reference.total() * numerical_precision) << "size=" << reference.size();
 
     mask = Scalar(0, 0, 0);
-    seamlessClone(source, destination, mask, p, result, 1);
+    seamlessClone(source, destination, mask, p, result, NORMAL_CLONE);
 
     reference = destination;
     errorINF = cvtest::norm(reference, result, NORM_INF);
@@ -117,7 +117,7 @@ TEST(Photo_SeamlessClone_mixed, regression)
     Point p;
     p.x = destination.size().width/2;
     p.y = destination.size().height/2;
-    seamlessClone(source, destination, mask, p, result, 2);
+    seamlessClone(source, destination, mask, p, result, MIXED_CLONE);
 
     SAVE(result);
 
@@ -150,7 +150,7 @@ TEST(Photo_SeamlessClone_featureExchange, regression)
     Point p;
     p.x = destination.size().width/2;
     p.y = destination.size().height/2;
-    seamlessClone(source, destination, mask, p, result, 3);
+    seamlessClone(source, destination, mask, p, result, MONOCHROME_TRANSFER);
 
     SAVE(result);
 

@@ -29,13 +29,7 @@ namespace cv { namespace dnn {
         return id == DNN_TARGET_CUDA_FP16 || id == DNN_TARGET_CUDA;
     }
 
-    constexpr bool haveCUDA() {
-#ifdef HAVE_CUDA
-        return true;
-#else
-        return false;
-#endif
-    }
+    bool haveCUDA();
 
 #ifdef HAVE_CUDA
     namespace cuda4dnn { namespace csl {

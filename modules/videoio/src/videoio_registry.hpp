@@ -14,6 +14,7 @@ namespace cv
 enum BackendMode {
     MODE_CAPTURE_BY_INDEX    = 1 << 0,           //!< device index
     MODE_CAPTURE_BY_FILENAME = 1 << 1,           //!< filename or device path (v4l2)
+    MODE_CAPTURE_BY_STREAM   = 1 << 2,           //!< data stream
     MODE_WRITER              = 1 << 4,            //!< writer
 
     MODE_CAPTURE_ALL = MODE_CAPTURE_BY_INDEX + MODE_CAPTURE_BY_FILENAME,
@@ -38,6 +39,7 @@ namespace videoio_registry {
 
 std::vector<VideoBackendInfo> getAvailableBackends_CaptureByIndex();
 std::vector<VideoBackendInfo> getAvailableBackends_CaptureByFilename();
+std::vector<VideoBackendInfo> getAvailableBackends_CaptureByStream();
 std::vector<VideoBackendInfo> getAvailableBackends_Writer();
 bool checkDeprecatedBackend(int api);
 

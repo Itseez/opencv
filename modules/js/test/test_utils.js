@@ -245,5 +245,8 @@ QUnit.test('test_rotated_rect', function(assert) {
 
         assert.equal(points[0].x, cv.RotatedRect.boundingRect2f(rect).x);
         assert.equal(points[1].y, cv.RotatedRect.boundingRect2f(rect).y);
+
+        let points1 = cv.boxPoints(rect);
+        assert.deepEqual(points, points1);
     }
 });

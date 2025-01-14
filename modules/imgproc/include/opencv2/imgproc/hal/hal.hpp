@@ -3,6 +3,7 @@
 
 #include "opencv2/core/cvdef.h"
 #include "opencv2/core/cvstd.hpp"
+#include "opencv2/core/utility.hpp"
 #include "opencv2/core/hal/interface.h"
 
 namespace cv { namespace hal {
@@ -158,12 +159,14 @@ CV_EXPORTS void cvtGraytoBGR5x5(const uchar * src_data, size_t src_step,
 CV_EXPORTS void cvtBGRtoYUV(const uchar * src_data, size_t src_step,
                             uchar * dst_data, size_t dst_step,
                             int width, int height,
-                            int depth, int scn, bool swapBlue, bool isCbCr);
+                            int depth, int scn, bool swapBlue, bool isCbCr,
+                            AlgorithmHint hint = ALGO_HINT_DEFAULT);
 
 CV_EXPORTS void cvtYUVtoBGR(const uchar * src_data, size_t src_step,
                             uchar * dst_data, size_t dst_step,
                             int width, int height,
-                            int depth, int dcn, bool swapBlue, bool isCbCr);
+                            int depth, int dcn, bool swapBlue, bool isCbCr,
+                            AlgorithmHint hint = ALGO_HINT_DEFAULT);
 
 CV_EXPORTS void cvtBGRtoXYZ(const uchar * src_data, size_t src_step,
                             uchar * dst_data, size_t dst_step,
@@ -198,28 +201,33 @@ CV_EXPORTS void cvtLabtoBGR(const uchar * src_data, size_t src_step,
 CV_EXPORTS void cvtTwoPlaneYUVtoBGR(const uchar * src_data, size_t src_step,
                                     uchar * dst_data, size_t dst_step,
                                     int dst_width, int dst_height,
-                                    int dcn, bool swapBlue, int uIdx);
+                                    int dcn, bool swapBlue, int uIdx,
+                                    AlgorithmHint hint = ALGO_HINT_DEFAULT);
 
 //! Separate Y and UV planes
 CV_EXPORTS void cvtTwoPlaneYUVtoBGR(const uchar * y_data, const uchar * uv_data, size_t src_step,
                                     uchar * dst_data, size_t dst_step,
                                     int dst_width, int dst_height,
-                                    int dcn, bool swapBlue, int uIdx);
+                                    int dcn, bool swapBlue, int uIdx,
+                                    AlgorithmHint hint = ALGO_HINT_DEFAULT);
 
 CV_EXPORTS void cvtTwoPlaneYUVtoBGR(const uchar * y_data, size_t y_step, const uchar * uv_data, size_t uv_step,
                                     uchar * dst_data, size_t dst_step,
                                     int dst_width, int dst_height,
-                                    int dcn, bool swapBlue, int uIdx);
+                                    int dcn, bool swapBlue, int uIdx,
+                                    AlgorithmHint hint = ALGO_HINT_DEFAULT);
 
 CV_EXPORTS void cvtThreePlaneYUVtoBGR(const uchar * src_data, size_t src_step,
                                       uchar * dst_data, size_t dst_step,
                                       int dst_width, int dst_height,
-                                      int dcn, bool swapBlue, int uIdx);
+                                      int dcn, bool swapBlue, int uIdx,
+                                      AlgorithmHint hint = ALGO_HINT_DEFAULT);
 
 CV_EXPORTS void cvtBGRtoThreePlaneYUV(const uchar * src_data, size_t src_step,
                                       uchar * dst_data, size_t dst_step,
                                       int width, int height,
-                                      int scn, bool swapBlue, int uIdx);
+                                      int scn, bool swapBlue, int uIdx,
+                                      AlgorithmHint hint = ALGO_HINT_DEFAULT);
 
 //! Separate Y and UV planes
 CV_EXPORTS void cvtBGRtoTwoPlaneYUV(const uchar * src_data, size_t src_step,
@@ -230,12 +238,14 @@ CV_EXPORTS void cvtBGRtoTwoPlaneYUV(const uchar * src_data, size_t src_step,
 CV_EXPORTS void cvtOnePlaneYUVtoBGR(const uchar * src_data, size_t src_step,
                                     uchar * dst_data, size_t dst_step,
                                     int width, int height,
-                                    int dcn, bool swapBlue, int uIdx, int ycn);
+                                    int dcn, bool swapBlue, int uIdx, int ycn,
+                                    AlgorithmHint hint = ALGO_HINT_DEFAULT);
 
 CV_EXPORTS void cvtOnePlaneBGRtoYUV(const uchar * src_data, size_t src_step,
                                     uchar * dst_data, size_t dst_step,
                                     int width, int height,
-                                    int scn, bool swapBlue, int uIdx, int ycn);
+                                    int scn, bool swapBlue, int uIdx, int ycn,
+                                    AlgorithmHint hint = ALGO_HINT_DEFAULT);
 
 CV_EXPORTS void cvtRGBAtoMultipliedRGBA(const uchar * src_data, size_t src_step,
                                         uchar * dst_data, size_t dst_step,

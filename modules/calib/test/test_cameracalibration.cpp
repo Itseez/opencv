@@ -1384,11 +1384,11 @@ void CV_StereoCalibrationTest::run( int )
             rotMats1, transVecs1, rmsErrorPerView1, rmsErrorPerView2,
             TermCriteria(TermCriteria::MAX_ITER+TermCriteria::EPS, 30, 1e-6),
             CALIB_SAME_FOCAL_LENGTH
-            //+ CV_CALIB_FIX_ASPECT_RATIO
+            //+ CALIB_FIX_ASPECT_RATIO
             + CALIB_FIX_PRINCIPAL_POINT
             + CALIB_ZERO_TANGENT_DIST
             + CALIB_FIX_K3
-            + CALIB_FIX_K4 + CALIB_FIX_K5 //+ CV_CALIB_FIX_K6
+            + CALIB_FIX_K4 + CALIB_FIX_K5 //+ CALIB_FIX_K6
             );
 
         /* rmsErrorFromStereoCalib /= nframes*npoints; */

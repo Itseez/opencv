@@ -47,18 +47,17 @@
 using namespace std;
 using namespace cv;
 
-static Mat checkMask(InputArray _mask, Size size)
+static Mat checkMask(InputArray mask, Size size)
 {
-    Mat mask = _mask.getMat();
     Mat gray;
-    if (mask.channels() > 1)
+    if (mask.channels() == 3 || mask.channels() == 4)
         cvtColor(mask, gray, COLOR_BGRA2GRAY);
     else
     {
         if (mask.empty())
             gray = Mat(size.height, size.width, CV_8UC1, Scalar(255));
         else
-            mask.copyTo(gray);
+            return mask.getMat();
     }
 
     return gray;
@@ -68,9 +67,11 @@ void cv::seamlessClone(InputArray _src, InputArray _dst, InputArray _mask, Point
 {
     CV_INSTRUMENT_REGION();
     CV_Assert(!_src.empty());
+    CV_Assert(!_dst.empty());
 
     const Mat src  = _src.getMat();
     const Mat dest = _dst.getMat();
+
     Mat mask = checkMask(_mask, src.size());
     dest.copyTo(_blend);
     Mat blend = _blend.getMat();
@@ -80,10 +81,18 @@ void cv::seamlessClone(InputArray _src, InputArray _dst, InputArray _mask, Point
 
     Rect roi_s = boundingRect(mask);
     if (roi_s.empty()) return;
-    Rect roi_d(p.x - roi_s.width / 2, p.y - roi_s.height / 2, roi_s.width, roi_s.height);
 
-    Mat destinationROI = dest(roi_d).clone();
+    int l_from_center = p.x - roi_s.width / 2;
+    int t_from_center = p.y - roi_s.height / 2;
 
+    if (flags >= NORMAL_CLONE_WIDE)
+    {
+        l_from_center = p.x - (mask.cols / 2 - roi_s.x);
+        t_from_center = p.y - (mask.rows / 2 - roi_s.y);
+    }
+
+    Rect roi_d(l_from_center, t_from_center, roi_s.width, roi_s.height);
+    Mat destinationROI = dest(roi_d);
     Mat sourceROI = Mat::zeros(roi_s.height, roi_s.width, src.type());
     src(roi_s).copyTo(sourceROI,mask(roi_s));
 

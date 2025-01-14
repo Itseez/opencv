@@ -789,7 +789,7 @@ protected:
         calcROI = getValidDisparityROI(cROI, cROI, params.mindisp, params.ndisp, params.winSize);
 
         bm->compute( leftImg, rightImg, tempDisp );
-        tempDisp.convertTo(leftDisp, CV_32F, 1./StereoMatcher::DISP_SCALE);
+        tempDisp.convertTo(leftDisp, CV_32F, 1./static_cast<double>(StereoMatcher::DISP_SCALE));
 
         //check for fixed-type disparity data type
         Mat_<float> fixedFloatDisp;
@@ -802,7 +802,7 @@ protected:
                 for (int x = 0; x < leftDisp.cols; x++)
                 {
                     if (leftDisp.at<float>(y, x) < params.mindisp)
-                        leftDisp.at<float>(y, x) = -1./StereoMatcher::DISP_SCALE; // treat disparity < mindisp as no disparity
+                        leftDisp.at<float>(y, x) = -1./static_cast<double>(StereoMatcher::DISP_SCALE); // treat disparity < mindisp as no disparity
                 }
 
         return params.winSize/2;

@@ -1635,7 +1635,7 @@ void CV_WarpPerspective_Test::warpPerspective(const Mat& _src, Mat& _dst)
                 continue;
             }
 
-            den *= INTER_TAB_SIZE;
+            den *= static_cast<double>(INTER_TAB_SIZE);
             int v0 = saturate_cast<int>((tM[0] * dx + tM[1] * dy + tM[2]) * den);
             int v1 = saturate_cast<int>((tM[3] * dx + tM[4] * dy + tM[5]) * den);
 

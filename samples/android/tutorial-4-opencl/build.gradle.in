@@ -15,11 +15,13 @@ android {
                 if (gradle.opencv_source == "sdk_path") {
                     arguments "-DOpenCV_DIR=" + project(':opencv').projectDir + "/@ANDROID_PROJECT_JNI_PATH@",
                               "-DOPENCV_FROM_SDK=TRUE",
+                              "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
                               "-DANDROID_OPENCL_SDK=@ANDROID_OPENCL_SDK@" @OPENCV_ANDROID_CMAKE_EXTRA_ARGS@
 
                 } else {
                     arguments "-DOPENCV_VERSION_MAJOR=@OPENCV_VERSION_MAJOR@",
                               "-DOPENCV_FROM_SDK=FALSE",
+                              "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON",
                               "-DANDROID_OPENCL_SDK=@ANDROID_OPENCL_SDK@" @OPENCV_ANDROID_CMAKE_EXTRA_ARGS@
                 }
                 targets "JNIpart"

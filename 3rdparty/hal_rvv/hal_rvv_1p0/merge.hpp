@@ -20,9 +20,9 @@ namespace cv { namespace cv_hal_rvv {
 #if defined __GNUC__
 __attribute__((optimize("no-tree-vectorize")))
 #endif
-static int merge8u(const uchar** src, uchar* dst, int len, int cn ) {
+inline int merge8u(const uchar** src, uchar* dst, int len, int cn ) {
     int k = cn % 4 ? cn % 4 : 4;
-    int i = 0, j;
+    int i = 0;
     int vl = __riscv_vsetvlmax_e8m1();
     if( k == 1 )
     {
@@ -30,7 +30,7 @@ static int merge8u(const uchar** src, uchar* dst, int len, int cn ) {
         for( ; i <= len - vl; i += vl)
         {
             auto a = __riscv_vle8_v_u8m1(src0 + i, vl);
-            __riscv_vsse8_v_u8m1(dst + i*cn, sizeof(uchar)*2, a, vl);
+            __riscv_vsse8_v_u8m1(dst + i*cn, sizeof(uchar)*cn, a, vl);
         }
         #if defined(__clang__)
         #pragma clang loop vectorize(disable)
@@ -45,8 +45,8 @@ static int merge8u(const uchar** src, uchar* dst, int len, int cn ) {
         {
             auto a = __riscv_vle8_v_u8m1(src0 + i, vl);
             auto b = __riscv_vle8_v_u8m1(src1 + i, vl);
-            __riscv_vsse8_v_u8m1(dst + i*cn, sizeof(uchar)*2, a, vl);
-            __riscv_vsse8_v_u8m1(dst + i*cn + 1, sizeof(uchar)*2, b, vl);
+            __riscv_vsse8_v_u8m1(dst + i*cn, sizeof(uchar)*cn, a, vl);
+            __riscv_vsse8_v_u8m1(dst + i*cn + 1, sizeof(uchar)*cn, b, vl);
         }
         #if defined(__clang__)
         #pragma clang loop vectorize(disable)
@@ -65,9 +65,9 @@ static int merge8u(const uchar** src, uchar* dst, int len, int cn ) {
             auto a = __riscv_vle8_v_u8m1(src0 + i, vl);
             auto b = __riscv_vle8_v_u8m1(src1 + i, vl);
             auto c = __riscv_vle8_v_u8m1(src2 + i, vl);
-            __riscv_vsse8_v_u8m1(dst + i*cn, sizeof(uchar)*3, a, vl);
-            __riscv_vsse8_v_u8m1(dst + i*cn + 1, sizeof(uchar)*3, b, vl);
-            __riscv_vsse8_v_u8m1(dst + i*cn + 2, sizeof(uchar)*3, c, vl);
+            __riscv_vsse8_v_u8m1(dst + i*cn, sizeof(uchar)*cn, a, vl);
+            __riscv_vsse8_v_u8m1(dst + i*cn + 1, sizeof(uchar)*cn, b, vl);
+            __riscv_vsse8_v_u8m1(dst + i*cn + 2, sizeof(uchar)*cn, c, vl);
         }
         #if defined(__clang__)
         #pragma clang loop vectorize(disable)
@@ -88,10 +88,10 @@ static int merge8u(const uchar** src, uchar* dst, int len, int cn ) {
             auto b = __riscv_vle8_v_u8m1(src1 + i, vl);
             auto c = __riscv_vle8_v_u8m1(src2 + i, vl);
             auto d = __riscv_vle8_v_u8m1(src3 + i, vl);
-            __riscv_vsse8_v_u8m1(dst + i*cn, sizeof(uchar)*4, a, vl);
-            __riscv_vsse8_v_u8m1(dst + i*cn + 1, sizeof(uchar)*4, b, vl);
-            __riscv_vsse8_v_u8m1(dst + i*cn + 2, sizeof(uchar)*4, c, vl);
-            __riscv_vsse8_v_u8m1(dst + i*cn + 3, sizeof(uchar)*4, d, vl);
+            __riscv_vsse8_v_u8m1(dst + i*cn, sizeof(uchar)*cn, a, vl);
+            __riscv_vsse8_v_u8m1(dst + i*cn + 1, sizeof(uchar)*cn, b, vl);
+            __riscv_vsse8_v_u8m1(dst + i*cn + 2, sizeof(uchar)*cn, c, vl);
+            __riscv_vsse8_v_u8m1(dst + i*cn + 3, sizeof(uchar)*cn, d, vl);
         }
         #if defined(__clang__)
         #pragma clang loop vectorize(disable)
@@ -110,10 +110,27 @@ static int merge8u(const uchar** src, uchar* dst, int len, int cn ) {
     for( ; k < cn; k += 4 )
     {
         const uchar *src0 = src[k], *src1 = src[k+1], *src2 = src[k+2], *src3 = src[k+3];
-        for( i = 0, j = k; i < len; i++, j += cn )
+        i = 0;
+        for( ; i <= len - vl; i += vl)
         {
-            dst[j] = src0[i]; dst[j+1] = src1[i];
-            dst[j+2] = src2[i]; dst[j+3] = src3[i];
+            auto a = __riscv_vle8_v_u8m1(src0 + i, vl);
+            auto b = __riscv_vle8_v_u8m1(src1 + i, vl);
+            auto c = __riscv_vle8_v_u8m1(src2 + i, vl);
+            auto d = __riscv_vle8_v_u8m1(src3 + i, vl);
+            __riscv_vsse8_v_u8m1(dst + k+i*cn, sizeof(uchar)*cn, a, vl);
+            __riscv_vsse8_v_u8m1(dst + k+i*cn + 1, sizeof(uchar)*cn, b, vl);
+            __riscv_vsse8_v_u8m1(dst + k+i*cn + 2, sizeof(uchar)*cn, c, vl);
+            __riscv_vsse8_v_u8m1(dst + k+i*cn + 3, sizeof(uchar)*cn, d, vl);
+        }
+        #if defined(__clang__)
+        #pragma clang loop vectorize(disable)
+        #endif
+        for( ; i < len; i++ )
+        {
+            dst[k+i*cn] = src0[i];
+            dst[k+i*cn+1] = src1[i];
+            dst[k+i*cn+2] = src2[i];
+            dst[k+i*cn+3] = src3[i];
         }
     }
     return CV_HAL_ERROR_OK;
@@ -122,9 +139,9 @@ static int merge8u(const uchar** src, uchar* dst, int len, int cn ) {
 #if defined __GNUC__
 __attribute__((optimize("no-tree-vectorize")))
 #endif
-static int merge16u(const ushort** src, ushort* dst, int len, int cn ) {
+inline int merge16u(const ushort** src, ushort* dst, int len, int cn ) {
     int k = cn % 4 ? cn % 4 : 4;
-    int i = 0, j;
+    int i = 0;
     int vl = __riscv_vsetvlmax_e16m1();
     if( k == 1 )
     {
@@ -132,7 +149,7 @@ static int merge16u(const ushort** src, ushort* dst, int len, int cn ) {
         for( ; i <= len - vl; i += vl)
         {
             auto a = __riscv_vle16_v_u16m1(src0 + i, vl);
-            __riscv_vsse16_v_u16m1(dst + i*cn, sizeof(ushort)*2, a, vl);
+            __riscv_vsse16_v_u16m1(dst + i*cn, sizeof(ushort)*cn, a, vl);
         }
         #if defined(__clang__)
         #pragma clang loop vectorize(disable)
@@ -147,8 +164,8 @@ static int merge16u(const ushort** src, ushort* dst, int len, int cn ) {
         {
             auto a = __riscv_vle16_v_u16m1(src0 + i, vl);
             auto b = __riscv_vle16_v_u16m1(src1 + i, vl);
-            __riscv_vsse16_v_u16m1(dst + i*cn, sizeof(ushort)*2, a, vl);
-            __riscv_vsse16_v_u16m1(dst + i*cn + 1, sizeof(ushort)*2, b, vl);
+            __riscv_vsse16_v_u16m1(dst + i*cn, sizeof(ushort)*cn, a, vl);
+            __riscv_vsse16_v_u16m1(dst + i*cn + 1, sizeof(ushort)*cn, b, vl);
         }
         #if defined(__clang__)
         #pragma clang loop vectorize(disable)
@@ -167,9 +184,9 @@ static int merge16u(const ushort** src, ushort* dst, int len, int cn ) {
             auto a = __riscv_vle16_v_u16m1(src0 + i, vl);
             auto b = __riscv_vle16_v_u16m1(src1 + i, vl);
             auto c = __riscv_vle16_v_u16m1(src2 + i, vl);
-            __riscv_vsse16_v_u16m1(dst + i*cn, sizeof(ushort)*3, a, vl);
-            __riscv_vsse16_v_u16m1(dst + i*cn + 1, sizeof(ushort)*3, b, vl);
-            __riscv_vsse16_v_u16m1(dst + i*cn + 2, sizeof(ushort)*3, c, vl);
+            __riscv_vsse16_v_u16m1(dst + i*cn, sizeof(ushort)*cn, a, vl);
+            __riscv_vsse16_v_u16m1(dst + i*cn + 1, sizeof(ushort)*cn, b, vl);
+            __riscv_vsse16_v_u16m1(dst + i*cn + 2, sizeof(ushort)*cn, c, vl);
         }
         #if defined(__clang__)
         #pragma clang loop vectorize(disable)
@@ -190,10 +207,10 @@ static int merge16u(const ushort** src, ushort* dst, int len, int cn ) {
             auto b = __riscv_vle16_v_u16m1(src1 + i, vl);
             auto c = __riscv_vle16_v_u16m1(src2 + i, vl);
             auto d = __riscv_vle16_v_u16m1(src3 + i, vl);
-            __riscv_vsse16_v_u16m1(dst + i*cn, sizeof(ushort)*4, a, vl);
-            __riscv_vsse16_v_u16m1(dst + i*cn + 1, sizeof(ushort)*4, b, vl);
-            __riscv_vsse16_v_u16m1(dst + i*cn + 2, sizeof(ushort)*4, c, vl);
-            __riscv_vsse16_v_u16m1(dst + i*cn + 3, sizeof(ushort)*4, d, vl);
+            __riscv_vsse16_v_u16m1(dst + i*cn, sizeof(ushort)*cn, a, vl);
+            __riscv_vsse16_v_u16m1(dst + i*cn + 1, sizeof(ushort)*cn, b, vl);
+            __riscv_vsse16_v_u16m1(dst + i*cn + 2, sizeof(ushort)*cn, c, vl);
+            __riscv_vsse16_v_u16m1(dst + i*cn + 3, sizeof(ushort)*cn, d, vl);
         }
         #if defined(__clang__)
         #pragma clang loop vectorize(disable)
@@ -212,10 +229,24 @@ static int merge16u(const ushort** src, ushort* dst, int len, int cn ) {
     for( ; k < cn; k += 4 )
     {
         const uint16_t *src0 = src[k], *src1 = src[k+1], *src2 = src[k+2], *src3 = src[k+3];
-        for( i = 0, j = k; i < len; i++, j += cn )
+        i = 0;
+        for( ; i <= len - vl; i += vl)
         {
-            dst[j] = src0[i]; dst[j+1] = src1[i];
-            dst[j+2] = src2[i]; dst[j+3] = src3[i];
+            auto a = __riscv_vle16_v_u16m1(src0 + i, vl);
+            auto b = __riscv_vle16_v_u16m1(src1 + i, vl);
+            auto c = __riscv_vle16_v_u16m1(src2 + i, vl);
+            auto d = __riscv_vle16_v_u16m1(src3 + i, vl);
+            __riscv_vsse16_v_u16m1(dst + k+i*cn, sizeof(ushort)*cn, a, vl);
+            __riscv_vsse16_v_u16m1(dst + k+i*cn + 1, sizeof(ushort)*cn, b, vl);
+            __riscv_vsse16_v_u16m1(dst + k+i*cn + 2, sizeof(ushort)*cn, c, vl);
+            __riscv_vsse16_v_u16m1(dst + k+i*cn + 3, sizeof(ushort)*cn, d, vl);
+        }
+        for( ; i < len; i++ )
+        {
+            dst[k+i*cn] = src0[i];
+            dst[k+i*cn+1] = src1[i];
+            dst[k+i*cn+2] = src2[i];
+            dst[k+i*cn+3] = src3[i];
         }
     }
     return CV_HAL_ERROR_OK;
@@ -224,7 +255,7 @@ static int merge16u(const ushort** src, ushort* dst, int len, int cn ) {
 #if defined __GNUC__
 __attribute__((optimize("no-tree-vectorize")))
 #endif
-static int merge32s(const int** src, int* dst, int len, int cn ) {
+inline int merge32s(const int** src, int* dst, int len, int cn ) {
     int k = cn % 4 ? cn % 4 : 4;
     int i, j;
     if( k == 1 )
@@ -294,7 +325,7 @@ static int merge32s(const int** src, int* dst, int len, int cn ) {
 #if defined __GNUC__
 __attribute__((optimize("no-tree-vectorize")))
 #endif
-static int merge64s(const int64** src, int64* dst, int len, int cn ) {
+inline int merge64s(const int64** src, int64* dst, int len, int cn ) {
     int k = cn % 4 ? cn % 4 : 4;
     int i, j;
     if( k == 1 )

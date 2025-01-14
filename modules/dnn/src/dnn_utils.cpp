@@ -126,6 +126,111 @@ Mat blobFromImagesWithParams(InputArrayOfArrays images, const Image2BlobParams& 
     return blob;
 }
 
+template<typename Tinp, typename Tout>
+void blobFromImagesNCHWImpl(const std::vector<Mat>& images, Mat& blob_, const Image2BlobParams& param)
+{
+    int w = images[0].cols;
+    int h = images[0].rows;
+    int wh = w * h;
+    int nch = images[0].channels();
+    CV_Assert(nch == 1 || nch == 3 || nch == 4);
+    int sz[] = { (int)images.size(), nch, h, w};
+    blob_.create(4, sz, param.ddepth);
+
+    for (size_t k = 0; k < images.size(); ++k)
+    {
+        CV_Assert(images[k].depth() == images[0].depth());
+        CV_Assert(images[k].channels() == images[0].channels());
+        CV_Assert(images[k].size() == images[0].size());
+
+        Tout* p_blob = blob_.ptr<Tout>() + k * nch * wh;
+        Tout* p_blob_r = p_blob;
+        Tout* p_blob_g = p_blob + wh;
+        Tout* p_blob_b = p_blob + 2 * wh;
+        Tout* p_blob_a = p_blob + 3 * wh;
+
+        if (param.swapRB)
+            std::swap(p_blob_r, p_blob_b);
+
+        for (size_t i = 0; i < h; ++i)
+        {
+            const Tinp* p_img_row = images[k].ptr<Tinp>(i);
+
+            if (nch == 1)
+            {
+                for (size_t j = 0; j < w; ++j)
+                {
+                    p_blob[i * w + j] = p_img_row[j];
+                }
+            }
+            else if (nch == 3)
+            {
+                for (size_t j = 0; j < w; ++j)
+                {
+                    p_blob_r[i * w + j] = p_img_row[j * 3    ];
+                    p_blob_g[i * w + j] = p_img_row[j * 3 + 1];
+                    p_blob_b[i * w + j] = p_img_row[j * 3 + 2];
+                }
+            }
+            else // if (nch == 4)
+            {
+                for (size_t j = 0; j < w; ++j)
+                {
+                    p_blob_r[i * w + j] = p_img_row[j * 4    ];
+                    p_blob_g[i * w + j] = p_img_row[j * 4 + 1];
+                    p_blob_b[i * w + j] = p_img_row[j * 4 + 2];
+                    p_blob_a[i * w + j] = p_img_row[j * 4 + 3];
+                }
+            }
+        }
+    }
+
+    if (param.mean == Scalar() && param.scalefactor == Scalar::all(1.0))
+        return;
+    CV_CheckTypeEQ(param.ddepth, CV_32F, "Scaling and mean substraction is supported only for CV_32F blob depth");
+
+    for (size_t k = 0; k < images.size(); ++k)
+    {
+        for (size_t ch = 0; ch < nch; ++ch)
+        {
+            float cur_mean = param.mean[ch];
+            float cur_scale = param.scalefactor[ch];
+            Tout* p_blob = blob_.ptr<Tout>() + k * nch * wh + ch * wh;
+            for (size_t i = 0; i < wh; ++i)
+            {
+                p_blob[i] = (p_blob[i] - cur_mean) * cur_scale;
+            }
+        }
+    }
+}
+
+template<typename Tout>
+void blobFromImagesNCHW(const std::vector<Mat>& images, Mat& blob_, const Image2BlobParams& param)
+{
+    if (images[0].depth() == CV_8U)
+        blobFromImagesNCHWImpl<uint8_t, Tout>(images, blob_, param);
+    else if (images[0].depth() == CV_8S)
+        blobFromImagesNCHWImpl<int8_t, Tout>(images, blob_, param);
+    else if (images[0].depth() == CV_16U)
+        blobFromImagesNCHWImpl<uint16_t, Tout>(images, blob_, param);
+    else if (images[0].depth() == CV_16S)
+        blobFromImagesNCHWImpl<int16_t, Tout>(images, blob_, param);
+    else if (images[0].depth() == CV_32S)
+        blobFromImagesNCHWImpl<int32_t, Tout>(images, blob_, param);
+    else if (images[0].depth() == CV_32F)
+        blobFromImagesNCHWImpl<float, Tout>(images, blob_, param);
+    else if (images[0].depth() == CV_64F)
+        blobFromImagesNCHWImpl<double, Tout>(images, blob_, param);
+    else
+        CV_Error(Error::BadDepth, "Unsupported input image depth for blobFromImagesNCHW");
+}
+
+template<typename Tout>
+void blobFromImagesNCHW(const std::vector<UMat>& images, UMat& blob_, const Image2BlobParams& param)
+{
+    CV_Error(Error::StsNotImplemented, "");
+}
+
 template<class Tmat>
 void blobFromImagesWithParamsImpl(InputArrayOfArrays images_, Tmat& blob_, const Image2BlobParams& param)
 {
@@ -153,19 +258,6 @@ void blobFromImagesWithParamsImpl(InputArrayOfArrays images_, Tmat& blob_, const
     int nch = images[0].channels();
     Scalar scalefactor = param.scalefactor;
     Scalar mean = param.mean;
-
-    if (param.swapRB)
-    {
-        if (nch > 2)
-        {
-            std::swap(mean[0], mean[2]);
-            std::swap(scalefactor[0], scalefactor[2]);
-        }
-        else
-        {
-            CV_LOG_WARNING(NULL, "Red/blue color swapping requires at least three image channels.");
-        }
-    }
 
     for (size_t i = 0; i < images.size(); i++)
     {
@@ -203,17 +295,34 @@ void blobFromImagesWithParamsImpl(InputArrayOfArrays images_, Tmat& blob_, const
                 resize(images[i], images[i], size, 0, 0, INTER_LINEAR);
             }
         }
-
-        if (images[i].depth() == CV_8U && param.ddepth == CV_32F)
-            images[i].convertTo(images[i], CV_32F);
-
-        subtract(images[i], mean, images[i]);
-        multiply(images[i], scalefactor, images[i]);
     }
 
     size_t nimages = images.size();
     Tmat image0 = images[0];
     CV_Assert(image0.dims == 2);
+
+    if (std::is_same<Tmat, Mat>::value && param.datalayout == DNN_LAYOUT_NCHW)
+    {
+        // Fast implementation for HWC cv::Mat images -> NCHW cv::Mat blob
+        if (param.ddepth == CV_8U)
+            blobFromImagesNCHW<uint8_t>(images, blob_, param);
+        else
+            blobFromImagesNCHW<float>(images, blob_, param);
+        return;
+    }
+
+    if (param.swapRB)
+    {
+        if (nch > 2)
+        {
+            std::swap(mean[0], mean[2]);
+            std::swap(scalefactor[0], scalefactor[2]);
+        }
+        else
+        {
+            CV_LOG_WARNING(NULL, "Red/blue color swapping requires at least three image channels.");
+        }
+    }
 
     if (param.datalayout == DNN_LAYOUT_NCHW)
     {
@@ -225,7 +334,14 @@ void blobFromImagesWithParamsImpl(InputArrayOfArrays images_, Tmat& blob_, const
 
             for (size_t i = 0; i < nimages; i++)
             {
-                const Tmat& image = images[i];
+                Tmat& image = images[i];
+                if (image.depth() == CV_8U && param.ddepth == CV_32F)
+                    image.convertTo(image, CV_32F);
+                if (mean != Scalar())
+                    subtract(image, mean, image);
+                if (scalefactor != Scalar::all(1.0))
+                    multiply(image, scalefactor, image);
+
                 CV_Assert(image.depth() == blob_.depth());
                 nch = image.channels();
                 CV_Assert(image.dims == 2 && (nch == 3 || nch == 4));
@@ -250,7 +366,14 @@ void blobFromImagesWithParamsImpl(InputArrayOfArrays images_, Tmat& blob_, const
 
             for (size_t i = 0; i < nimages; i++)
             {
-                const Tmat& image = images[i];
+                Tmat& image = images[i];
+                if (image.depth() == CV_8U && param.ddepth == CV_32F)
+                    image.convertTo(image, CV_32F);
+                if (mean != Scalar())
+                    subtract(image, mean, image);
+                if (scalefactor != Scalar::all(1.0))
+                    multiply(image, scalefactor, image);
+
                 CV_Assert(image.depth() == blob_.depth());
                 nch = image.channels();
                 CV_Assert(image.dims == 2 && (nch == 1));
@@ -269,7 +392,14 @@ void blobFromImagesWithParamsImpl(InputArrayOfArrays images_, Tmat& blob_, const
         int subMatType = CV_MAKETYPE(param.ddepth, nch);
         for (size_t i = 0; i < nimages; i++)
         {
-            const Tmat& image = images[i];
+            Tmat& image = images[i];
+            if (image.depth() == CV_8U && param.ddepth == CV_32F)
+                image.convertTo(image, CV_32F);
+            if (mean != Scalar())
+                subtract(image, mean, image);
+            if (scalefactor != Scalar::all(1.0))
+                multiply(image, scalefactor, image);
+
             CV_Assert(image.depth() == blob_.depth());
             CV_Assert(image.channels() == image0.channels());
             CV_Assert(image.size() == image0.size());

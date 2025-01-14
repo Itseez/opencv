@@ -115,7 +115,13 @@ void Board::Impl::generateImage(Size outSize, OutputArray img, int marginSize, i
         }
 
         // get marker
-        Size dst_sz(outCorners[2] - outCorners[0]); // assuming CCW order
+        Point2f vecWidth  = outCorners[1] - outCorners[0];
+        float width = (float)cv::norm(vecWidth);
+
+        Point2f vecHeight = outCorners[2] - outCorners[0];
+        float height = (float)cv::norm(vecHeight);
+
+        Size dst_sz(cvRound(width), cvRound(height));
         dst_sz.width = dst_sz.height = std::min(dst_sz.width, dst_sz.height); //marker should be square
         dictionary.generateImageMarker(ids[m], dst_sz.width, marker, borderBits);
 

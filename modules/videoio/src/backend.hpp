@@ -18,6 +18,7 @@ public:
     virtual ~IBackend() {}
     virtual Ptr<IVideoCapture> createCapture(int camera, const VideoCaptureParameters& params) const = 0;
     virtual Ptr<IVideoCapture> createCapture(const std::string &filename, const VideoCaptureParameters& params) const = 0;
+    virtual Ptr<IVideoCapture> createCapture(const Ptr<IStreamReader>&stream, const VideoCaptureParameters& params) const = 0;
     virtual Ptr<IVideoWriter> createWriter(const std::string& filename, int fourcc, double fps, const cv::Size& sz,
                                            const VideoWriterParameters& params) const = 0;
 };
@@ -34,15 +35,19 @@ public:
 
 typedef Ptr<IVideoCapture> (*FN_createCaptureFile)(const std::string & filename);
 typedef Ptr<IVideoCapture> (*FN_createCaptureCamera)(int camera);
+typedef Ptr<IVideoCapture> (*FN_createCaptureStream)(const Ptr<IStreamReader>& stream);
 typedef Ptr<IVideoCapture> (*FN_createCaptureFileWithParams)(const std::string & filename, const VideoCaptureParameters& params);
 typedef Ptr<IVideoCapture> (*FN_createCaptureCameraWithParams)(int camera, const VideoCaptureParameters& params);
+typedef Ptr<IVideoCapture> (*FN_createCaptureStreamWithParams)(const Ptr<IStreamReader>& stream, const VideoCaptureParameters& params);
 typedef Ptr<IVideoWriter>  (*FN_createWriter)(const std::string& filename, int fourcc, double fps, const Size& sz,
                                               const VideoWriterParameters& params);
 Ptr<IBackendFactory> createBackendFactory(FN_createCaptureFile createCaptureFile,
                                           FN_createCaptureCamera createCaptureCamera,
+                                          FN_createCaptureStream createCaptureStream,
                                           FN_createWriter createWriter);
 Ptr<IBackendFactory> createBackendFactory(FN_createCaptureFileWithParams createCaptureFile,
                                           FN_createCaptureCameraWithParams createCaptureCamera,
+                                          FN_createCaptureStreamWithParams createCaptureStream,
                                           FN_createWriter createWriter);
 
 Ptr<IBackendFactory> createPluginBackendFactory(VideoCaptureAPIs id, const char* baseName);

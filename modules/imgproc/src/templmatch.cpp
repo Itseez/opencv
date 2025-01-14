@@ -1056,7 +1056,7 @@ static bool ipp_crossCorr(const Mat& src, const Mat& tpl, Mat& dst, bool normed)
     if (ippiCrossCorrNorm==0)
         return false;
 
-    IppEnum funCfg = (IppEnum)(ippAlgAuto | ippiROIValid);
+    IppEnum funCfg = (IppEnum)(+ippAlgAuto | ippiROIValid);
     if(normed)
         funCfg |= ippiNorm;
     else
@@ -1093,7 +1093,7 @@ static bool ipp_sqrDistance(const Mat& src, const Mat& tpl, Mat& dst)
     if (ippiSqrDistanceNorm==0)
         return false;
 
-    IppEnum funCfg = (IppEnum)(ippAlgAuto | ippiROIValid | ippiNormNone);
+    IppEnum funCfg = (IppEnum)(+ippAlgAuto | ippiROIValid | ippiNormNone);
     status = ippiSqrDistanceNormGetBufferSize(srcRoiSize, tplRoiSize, funCfg, &bufSize);
     if ( status < 0 )
         return false;

@@ -36,8 +36,8 @@ import testlog_parser, sys, os, xml, glob, re
 from table_formatter import *
 from optparse import OptionParser
 
-numeric_re = re.compile("(\d+)")
-cvtype_re = re.compile("(8U|8S|16U|16S|32S|32F|64F)C(\d{1,3})")
+numeric_re = re.compile(r"(\d+)")
+cvtype_re = re.compile(r"(8U|8S|16U|16S|32S|32F|64F)C(\d{1,3})")
 cvtypes = { '8U': 0, '8S': 1, '16U': 2, '16S': 3, '32S': 4, '32F': 5, '64F': 6 }
 
 convert = lambda text: int(text) if text.isdigit() else text

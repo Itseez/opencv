@@ -333,6 +333,7 @@ static int cocoa_CreateTrackbar (const char* trackbar_name,
         result = 1;
     }
     [localpool2 drain];
+    __END__;
     return result;
 }
 
@@ -595,14 +596,16 @@ cv::Rect cvGetWindowRect_COCOA( const char* name )
     {
         CV_Error( cv::Error::StsNullPtr, "NULL window" );
     } else {
-        NSRect rect = [window frame];
+        @autoreleasepool {
+            NSRect rect = [window frame];
 #if MAC_OS_X_VERSION_MAX_ALLOWED > MAC_OS_X_VERSION_10_6
-        NSPoint pt = [window convertRectToScreen:rect].origin;
+            NSPoint pt = [window convertRectToScreen:rect].origin;
 #else
-        NSPoint pt = [window convertBaseToScreen:rect.origin];
+            NSPoint pt = [window convertBaseToScreen:rect.origin];
 #endif
-        NSSize sz = [[[window contentView] image] size];
-        result = cv::Rect(pt.x, pt.y, sz.width, sz.height);
+            NSSize sz = [[[window contentView] image] size];
+            result = cvRect(pt.x, pt.y, sz.width, sz.height);
+        }
     }
     return result;
 }

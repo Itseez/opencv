@@ -228,7 +228,7 @@ public:
 
         dst.create(LDR_SIZE, 1, CV_32FCC);
         Mat response = dst.getMat();
-        response = linearResponse(3) / (LDR_SIZE / 2.0f);
+        response = linearResponse(3) / (static_cast<float>(LDR_SIZE) / 2.0f);
 
         Mat card = Mat::zeros(LDR_SIZE, 1, CV_32FCC);
         for(size_t i = 0; i < images.size(); i++) {

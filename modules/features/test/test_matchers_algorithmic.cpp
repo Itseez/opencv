@@ -43,9 +43,6 @@
 
 namespace opencv_test { namespace {
 
-const string FEATURES2D_DIR = "features2d";
-const string IMAGE_FILENAME = "tsukuba.png";
-
 /****************************************************************************************\
 *                       Algorithmic tests for descriptor matchers                        *
 \****************************************************************************************/

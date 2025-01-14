@@ -2,6 +2,9 @@
 // It is subject to the license terms in the LICENSE file found in the top-level
 // directory of this distribution and at http://opencv.org/license.html
 
+#include <string>
+#include <vector>
+
 #include "test_precomp.hpp"
 
 namespace opencv_test { namespace {
@@ -110,7 +113,7 @@ TEST_P(Exif, exif_orientation)
     }
 }
 
-const string exif_files[] =
+const std::vector<std::string> exif_files
 {
 #ifdef HAVE_JPEG
     "readwrite/testExifOrientation_1.jpg",

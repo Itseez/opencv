@@ -1,5 +1,5 @@
 # https://developer.android.com/studio/releases/gradle-plugin
-set(ANDROID_GRADLE_PLUGIN_VERSION "7.3.1" CACHE STRING "Android Gradle Plugin version")
+set(ANDROID_GRADLE_PLUGIN_VERSION "8.6.0" CACHE STRING "Android Gradle Plugin version")
 message(STATUS "Android Gradle Plugin version: ${ANDROID_GRADLE_PLUGIN_VERSION}")
 
 set(KOTLIN_PLUGIN_VERSION "1.8.20" CACHE STRING "Kotlin Plugin version")
@@ -13,16 +13,16 @@ else()
   set(KOTLIN_STD_LIB "" CACHE STRING "Kotlin Standard Library dependency")
 endif()
 
-set(GRADLE_VERSION "7.6.3" CACHE STRING "Gradle version")
+set(GRADLE_VERSION "8.11.1" CACHE STRING "Gradle version")
 message(STATUS "Gradle version: ${GRADLE_VERSION}")
 
-set(ANDROID_COMPILE_SDK_VERSION "31" CACHE STRING "Android compileSdkVersion")
+set(ANDROID_COMPILE_SDK_VERSION "34" CACHE STRING "Android compileSdkVersion")
 if(ANDROID_NATIVE_API_LEVEL GREATER 21)
   set(ANDROID_MIN_SDK_VERSION "${ANDROID_NATIVE_API_LEVEL}" CACHE STRING "Android minSdkVersion")
 else()
   set(ANDROID_MIN_SDK_VERSION "21" CACHE STRING "Android minSdkVersion")
 endif()
-set(ANDROID_TARGET_SDK_VERSION "31" CACHE STRING "Android minSdkVersion")
+set(ANDROID_TARGET_SDK_VERSION "34" CACHE STRING "Android targetSdkVersion")
 
 set(ANDROID_BUILD_BASE_DIR "${OpenCV_BINARY_DIR}/opencv_android" CACHE INTERNAL "")
 set(ANDROID_TMP_INSTALL_BASE_DIR "${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/install/opencv_android")
@@ -35,11 +35,11 @@ include '${ANDROID_ABI}'
 ")
 
 set(ANDROID_INSTALL_ABI_FILTER "
-//reset()
-//include 'armeabi-v7a'
-//include 'arm64-v8a'
-//include 'x86'
-//include 'x86_64'
+  reset()
+  include 'armeabi-v7a'
+  include 'arm64-v8a'
+  include 'x86'
+  include 'x86_64'
 ")
 if(NOT INSTALL_CREATE_DISTRIB)
   set(ANDROID_INSTALL_ABI_FILTER "${ANDROID_BUILD_ABI_FILTER}")
@@ -54,7 +54,9 @@ set(ANDROID_STRICT_BUILD_CONFIGURATION "true")
 configure_file("${OpenCV_SOURCE_DIR}/samples/android/build.gradle.in" "${ANDROID_BUILD_BASE_DIR}/build.gradle" @ONLY)
 
 set(ANDROID_ABI_FILTER "${ANDROID_INSTALL_ABI_FILTER}")
-set(ANDROID_STRICT_BUILD_CONFIGURATION "false")
+# CI uses NDK 26d to overcome https://github.com/opencv/opencv/issues/26072
+# It's ahead of default configuration and we have to force version to get non-controversial parts of the package
+#set(ANDROID_STRICT_BUILD_CONFIGURATION "false")
 configure_file("${OpenCV_SOURCE_DIR}/samples/android/build.gradle.in" "${ANDROID_TMP_INSTALL_BASE_DIR}/${ANDROID_INSTALL_SAMPLES_DIR}/build.gradle" @ONLY)
 install(FILES "${ANDROID_TMP_INSTALL_BASE_DIR}/${ANDROID_INSTALL_SAMPLES_DIR}/build.gradle" DESTINATION "${ANDROID_INSTALL_SAMPLES_DIR}" COMPONENT samples)
 

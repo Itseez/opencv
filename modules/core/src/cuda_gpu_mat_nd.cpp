@@ -12,7 +12,8 @@ GpuMatND::~GpuMatND() = default;
 GpuMatND::GpuMatND(SizeArray _size, int _type, void* _data, StepArray _step) :
     flags(0), dims(0), data(static_cast<uchar*>(_data)), offset(0)
 {
-    CV_Assert(_step.empty() || _size.size() == _step.size() + 1);
+    CV_Assert(_step.empty() || _size.size() == _step.size() + 1 ||
+              (_size.size() == _step.size() && _step.back() == (size_t)CV_ELEM_SIZE(_type)));
 
     setFields(std::move(_size), _type, std::move(_step));
 }
@@ -118,7 +119,8 @@ void GpuMatND::setFields(SizeArray _size, int _type, StepArray _step)
     else
     {
         step = std::move(_step);
-        step.push_back(elemSize());
+        if (step.size() < size.size())
+          step.push_back(elemSize());
 
         flags = cv::updateContinuityFlag(flags, dims, size.data(), step.data());
     }

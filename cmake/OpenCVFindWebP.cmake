@@ -10,8 +10,6 @@
 
 # Look for the header file.
 
-unset(WEBP_FOUND)
-
 FIND_PATH(WEBP_INCLUDE_DIR NAMES webp/decode.h)
 
 if(NOT WEBP_INCLUDE_DIR)
@@ -21,13 +19,14 @@ else()
 
     # Look for the library.
     FIND_LIBRARY(WEBP_LIBRARY NAMES webp)
-    MARK_AS_ADVANCED(WEBP_LIBRARY)
+    FIND_LIBRARY(WEBP_MUX_LIBRARY NAMES webpmux)
+    FIND_LIBRARY(WEBP_DEMUX_LIBRARY NAMES webpdemux)
 
     # handle the QUIETLY and REQUIRED arguments and set WEBP_FOUND to TRUE if
     # all listed variables are TRUE
     INCLUDE(${CMAKE_ROOT}/Modules/FindPackageHandleStandardArgs.cmake)
     FIND_PACKAGE_HANDLE_STANDARD_ARGS(WebP DEFAULT_MSG WEBP_LIBRARY WEBP_INCLUDE_DIR)
 
-    SET(WEBP_LIBRARIES ${WEBP_LIBRARY})
+    SET(WEBP_LIBRARIES ${WEBP_LIBRARY} ${WEBP_MUX_LIBRARY} ${WEBP_DEMUX_LIBRARY})
     SET(WEBP_INCLUDE_DIRS ${WEBP_INCLUDE_DIR})
 endif()

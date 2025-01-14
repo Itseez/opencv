@@ -919,8 +919,8 @@ bool CvCaptureCAM_V4L::open(const std::string & _deviceName)
 {
     CV_LOG_DEBUG(NULL, "VIDEOIO(V4L2:" << _deviceName << "): opening...");
     FirstCapture = true;
-    width = DEFAULT_V4L_WIDTH;
-    height = DEFAULT_V4L_HEIGHT;
+    width = utils::getConfigurationParameterSizeT("OPENCV_VIDEOIO_V4L_DEFAULT_WIDTH", DEFAULT_V4L_WIDTH);
+    height = utils::getConfigurationParameterSizeT("OPENCV_VIDEOIO_V4L_DEFAULT_HEIGHT", DEFAULT_V4L_HEIGHT);
     width_set = height_set = 0;
     bufferSize = DEFAULT_V4L_BUFFERS;
     fps = DEFAULT_V4L_FPS;

@@ -6,6 +6,7 @@
                     "createMergeDebevec", "createMergeMertens", "createMergeRobertson",
                     "createTonemapDrago", "createTonemapMantiuk", "createTonemapReinhard", "inpaint"],
             "CalibrateCRF": ["process"],
+            "AlignExposures": ["process"],
             "AlignMTB" : ["calculateShift", "shiftMat", "computeBitmaps", "getMaxBits", "setMaxBits",
                             "getExcludeRange", "setExcludeRange", "getCut", "setCut"],
             "CalibrateDebevec" : ["getLambda", "setLambda", "getSamples", "setSamples", "getRandom", "setRandom"],

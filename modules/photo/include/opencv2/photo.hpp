@@ -708,16 +708,56 @@ CV_EXPORTS_W void decolor( InputArray src, OutputArray grayscale, OutputArray co
 //! @{
 
 
-//! seamlessClone algorithm flags
-enum
+//! Flags for the seamlessClone algorithm
+enum SeamlessCloneFlags
 {
-    /** The power of the method is fully expressed when inserting objects with complex outlines into a new background*/
+    /**
+    @brief Normal seamless cloning.
+    This method is ideal for inserting objects with complex outlines into a new background.
+    It preserves the original appearance and lighting of the inserted object, ensuring a natural blend.
+     */
     NORMAL_CLONE = 1,
-    /** The classic method, color-based selection and alpha masking might be time consuming and often leaves an undesirable
-    halo. Seamless cloning, even averaged with the original image, is not effective. Mixed seamless cloning based on a loose selection proves effective.*/
-    MIXED_CLONE  = 2,
-    /** Monochrome transfer allows the user to easily replace certain features of one object by alternative features.*/
-    MONOCHROME_TRANSFER = 3};
+
+    /**
+    @brief Mixed seamless cloning.
+    This method addresses cases where simple color-based selection or alpha masking is time-consuming
+    and may result in undesirable halos. By combining structure from the source and texture from the
+    destination, mixed seamless cloning is highly effective, even with loosely defined selections.
+     */
+    MIXED_CLONE = 2,
+
+    /**
+    @brief Monochrome transfer cloning.
+    This method allows users to replace specific features of an object, such as grayscale textures
+    or patterns, with alternative features. It is particularly useful for artistic effects or
+    targeted object modifications.
+     */
+    MONOCHROME_TRANSFER = 3,
+
+    /**
+    @brief Enhanced normal seamless cloning.
+    Similar to `NORMAL_CLONE`, but with an advanced approach to ROI (Region of Interest) calculation.
+    This mode processes a larger source region by considering the entire mask area instead of only
+    the bounding rectangle of non-zero pixels.
+     */
+    NORMAL_CLONE_WIDE = 9,
+
+    /**
+    @brief Enhanced mixed seamless cloning.
+    Similar to `MIXED_CLONE`, but with an advanced approach to ROI (Region of Interest) calculation.
+    This mode processes a larger source region by considering the entire mask area instead of only
+    the bounding rectangle of non-zero pixels.
+     */
+    MIXED_CLONE_WIDE = 10,
+
+    /**
+    @brief Enhanced monochrome transfer cloning.
+    Similar to `MONOCHROME_TRANSFER`, but with an advanced approach to ROI (Region of Interest) calculation.
+    This mode processes a larger source region by considering the entire mask area instead of only
+    the bounding rectangle of non-zero pixels.
+     */
+    MONOCHROME_TRANSFER_WIDE = 11
+};
 
 
 /** @example samples/cpp/tutorial_code/photo/seamless_cloning/cloning_demo.cpp
@@ -726,18 +766,19 @@ An example using seamlessClone function
 /** @example samples/cpp/snippets/cloning_demo.cpp
 An example using illuminationChange, colorChange, seamlessClone, textureFlattening functions
 */
-/** @brief Image editing tasks concern either global changes (color/intensity corrections, filters,
-deformations) or local changes concerned to a selection. Here we are interested in achieving local
-changes, ones that are restricted to a region manually selected (ROI), in a seamless and effortless
-manner. The extent of the changes ranges from slight distortions to complete replacement by novel
-content @cite PM03 .
+/** @brief Performs seamless cloning to blend a region from a source image into a destination image.
+This function is designed for local image editing, allowing changes restricted to a region
+(manually selected as the ROI) to be applied effortlessly and seamlessly. These changes can
+range from slight distortions to complete replacement by novel content @cite PM03.
 
-@param src Input 8-bit 3-channel image.
-@param dst Input 8-bit 3-channel image.
-@param mask Input 8-bit 1 or 3-channel image.
-@param p Point in dst image where object is placed.
-@param blend Output image with the same size and type as dst.
-@param flags Cloning method that could be cv::NORMAL_CLONE, cv::MIXED_CLONE or cv::MONOCHROME_TRANSFER
+@param src The source image (8-bit 3-channel), from which a region will be blended into the destination.
+@param dst The destination image (8-bit 3-channel), where the src image will be blended.
+@param mask A binary mask (8-bit, 1, 3, or 4-channel) specifying the region in the source image to blend.
+Non-zero pixels indicate the region to be blended. If an empty Mat is provided, a mask with
+all non-zero pixels is created internally.
+@param p The point where the center of the src image is placed in the dst image.
+@param blend The output image that stores the result of the seamless cloning. It has the same size and type as `dst`.
+@param flags Flags that control the type of cloning method, can take values of `cv::SeamlessCloneFlags`.
  */
 CV_EXPORTS_W void seamlessClone( InputArray src, InputArray dst, InputArray mask, Point p,
         OutputArray blend, int flags);
