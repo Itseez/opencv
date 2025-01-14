@@ -1838,7 +1838,8 @@ _InputArray::_InputArray(const MatExpr& expr)
         swap(const_cast<MatExpr&>(expr), result_expr);
     }
     CV_Assert(isIdentity(expr));
-    init(FIXED_TYPE + FIXED_SIZE + MAT + ACCESS_READ, &expr.a);
+    flags = FIXED_TYPE + FIXED_SIZE + MAT + ACCESS_READ;
+    obj = const_cast<Mat*>(&expr.a);
 }
 
 } // cv::

@@ -176,6 +176,7 @@ CV_EXPORTS bool operator != (const MatShape& shape1, const MatShape& shape2);
 
 CV__DEBUG_NS_BEGIN
 
+struct CV_EXPORTS _ArrayOpsBase;
 class CV_EXPORTS _OutputArray;
 
 //////////////////////// Input/Output Array Arguments /////////////////////////////////
@@ -289,8 +290,8 @@ public:
         STD_ARRAY_MAT     =15 << KIND_SHIFT
     };
 
-    _InputArray();
-    _InputArray(int _flags, void* _obj);
+    _InputArray() = default;
+    template<class T> _InputArray(int flags, T* obj);
     _InputArray(const Mat& m);
     _InputArray(const MatExpr& expr);
     _InputArray(const std::vector<Mat>& vec);
@@ -359,15 +360,18 @@ public:
     bool isVector() const;
     bool isGpuMat() const;
     bool isGpuMatVector() const;
-    ~_InputArray();
 
 protected:
-    int flags;
-    void* obj;
+    int flags = static_cast<int>(NONE);
+    void* obj = nullptr;
     Size sz;
+    const _ArrayOpsBase* ops = nullptr;
 
-    void init(int _flags, const void* _obj);
-    void init(int _flags, const void* _obj, Size _sz);
+    template<class T>
+    _InputArray(int flags, T* obj, Size sz);
+
+    template<class T>
+    _InputArray(int flags, const T* obj, Size sz);
 };
 CV_ENUM_FLAGS(_InputArray::KindFlag)
 __CV_ENUM_FLAGS_BITWISE_AND(_InputArray::KindFlag, int, _InputArray::KindFlag)
@@ -421,8 +425,13 @@ public:
         DEPTH_MASK_FLT = DEPTH_MASK_32F + DEPTH_MASK_64F
     };
 
-    _OutputArray();
-    _OutputArray(int _flags, void* _obj);
+    _OutputArray() = default;
+
+    template<class T>
+    _OutputArray(int _flags, T* _obj)
+    : _InputArray(_flags, _obj)
+    {}
+
     _OutputArray(Mat& m);
     _OutputArray(std::vector<Mat>& vec);
     _OutputArray(cuda::GpuMat& d_mat);
@@ -503,14 +512,23 @@ public:
 
     void move(UMat& u) const;
     void move(Mat& m) const;
+protected:
+    template<class T> _OutputArray(int _flags, T* _obj, Size _sz)
+    : _InputArray(_flags, _obj, _sz)
+    {}
 };
 
 
 class CV_EXPORTS _InputOutputArray : public _OutputArray
 {
 public:
-    _InputOutputArray();
-    _InputOutputArray(int _flags, void* _obj);
+    _InputOutputArray() = default;
+
+    template<class T>
+    _InputOutputArray(int _flags, T* _obj)
+    : _OutputArray(_flags, _obj)
+    {}
+
     _InputOutputArray(Mat& m);
     _InputOutputArray(std::vector<Mat>& vec);
     _InputOutputArray(cuda::GpuMat& d_mat);
@@ -550,7 +568,11 @@ public:
 
     template<typename _Tp> static _InputOutputArray rawInOut(std::vector<_Tp>& vec);
     template<typename _Tp, std::size_t _Nm> _InputOutputArray rawInOut(std::array<_Tp, _Nm>& arr);
-
+private:
+    template<class T>
+    _InputOutputArray(int _flags, T* _obj, Size _sz)
+    : _OutputArray(_flags, _obj, _sz)
+    {}
 };
 
 /** Helper to wrap custom types. @see InputArray */
@@ -4088,5 +4110,6 @@ CV_EXPORTS MatExpr abs(const MatExpr& e);
 } // cv
 
 #include "opencv2/core/mat.inl.hpp"
+#include "opencv2/core/array_helpers.hpp"
 
 #endif // OPENCV_CORE_MAT_HPP
