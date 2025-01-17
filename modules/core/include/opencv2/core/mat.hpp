@@ -3552,74 +3552,49 @@ public:
     virtual int type(const MatExpr& expr) const;
 };
 
-/*
-@brief Matrix expression representation
-
-This header file defines a list of implemented matrix operations that can be combined
-in arbitrary complex expressions. The following matrix operations work with matrices (Mat),
-scalars (Scalar), and real-valued scalars (double).
-
+/** @brief Matrix expression representation
 @anchor MatrixExpressions
-
-These operations include:
-- Matrix addition, subtraction, negation
-- Scaling and element-wise operations
-- Matrix multiplication, transposition, inversion
-- Comparison and logical operations
-- Various matrix functions and initializers
-
-Example operations and their descriptions:
-
-- **Addition, subtraction, negation**:
-- `A + B`, `A - B`, `A + s`, `A - s`, `s + A`, `s - A`, `-A`
-
-- **Scaling**: 
-- `A * alpha` (scales matrix `A` by scalar `alpha`)
-
-- **Element-wise multiplication and division**:
-- `A.mul(B)`, `A / B`, `alpha / A`
-
-- **Matrix multiplication**:
-- `A * B`
-
-- **Matrix transposition**: 
-- `A.t()` (transpose of matrix `A`)
-
-- **Matrix inversion and pseudo-inversion**:
-- `A.inv([method])` (~ `A^-1`), `A.inv([method]) * B` (~ solve `AX = B`)
-
-- **Comparison** (result is an 8-bit single-channel mask):
-- `A cmpop B`, `A cmpop alpha`, `alpha cmpop A`, where `cmpop` is one of:
-- `>`, `>=`, `==`, `!=`, `<=`, `<`
-
-- **Bitwise logical operations**: 
-- `A logicop B`, `A logicop s`, `s logicop A`, `~A`, where `logicop` is one of:
-- `&`, `|`, `^`
-
-- **Element-wise minimum and maximum**:
-- `min(A, B)`, `min(A, alpha)`, `max(A, B)`, `max(A, alpha)`
-
-- **Element-wise absolute value**:
-- `abs(A)`
-
-- **Cross-product and dot-product**: 
-- `A.cross(B)`, `A.dot(B)`
-
-- **Various matrix functions**:
-- `norm`, `mean`, `sum`, `countNonZero`, `trace`, `determinant`, `repeat`, etc.
-
-- **Matrix initializers**: 
-- `Mat::eye()`, `Mat::zeros()`, `Mat::ones()` to create identity, zero, or one matrices.
-
-- **Matrix constructors and sub-matrices**:
-- Matrix comma-separated initializers and operators to extract sub-matrices.
-
-- **Matrix type casting**:
-- `Mat_<destination_type>()` constructors for casting the result to the appropriate matrix type.
-
-@note Comma-separated initializers and some other operations may require explicit `Mat()` 
-or `Mat_<T>()` constructor calls to resolve ambiguities.
- */
+This is a list of implemented matrix operations that can be combined in arbitrary complex
+expressions (here A, B stand for matrices ( cv::Mat ), s for a cv::Scalar, alpha for a
+real-valued scalar ( double )):
+-   Addition, subtraction, negation: `A+B`, `A-B`, `A+s`, `A-s`, `s+A`, `s-A`, `-A`
+-   Scaling: `A*alpha`
+-   Per-element multiplication and division: `A.mul(B)`, `A/B`, `alpha/A`
+-   Matrix multiplication: `A*B`
+-   Transposition: `A.t()` (means A<sup>T</sup>)
+-   Matrix inversion and pseudo-inversion, solving linear systems and least-squares problems:
+    `A.inv([method]) (~ A<sup>-1</sup>)`,   `A.inv([method])*B (~ X: AX=B)`
+-   Comparison: `A cmpop B`, `A cmpop alpha`, `alpha cmpop A`, where *cmpop* is one of
+  `>`, `>=`, `==`, `!=`, `<=`, `<`. The result of comparison is an 8-bit single channel mask whose
+    elements are set to 255 (if the particular element or pair of elements satisfy the condition) or
+    0.
+-   Bitwise logical operations: `A logicop B`, `A logicop s`, `s logicop A`, `~A`, where *logicop* is one of
+  `&`, `|`, `^`.
+-   Element-wise minimum and maximum: `min(A, B)`, `min(A, alpha)`, `max(A, B)`, `max(A, alpha)`
+-   Element-wise absolute value: `abs(A)`
+-   Cross-product, dot-product: `A.cross(B)`, `A.dot(B)`
+-   Any function of matrix or matrices and scalars that returns a matrix or a scalar, such as cv::norm,
+    cv::mean, cv::sum, cv::countNonZero, cv::trace, cv::determinant, cv::repeat, and others.
+-   Matrix initializers ( Mat::eye(), Mat::zeros(), Mat::ones() ), matrix comma-separated
+    initializers, matrix constructors and operators that extract sub-matrices (see Mat description).
+-   Mat_<destination_type>() constructors to cast the result to the proper type.
+@note Comma-separated initializers and probably some other operations may require additional
+explicit Mat() or Mat_<T>() constructor calls to resolve a possible ambiguity.
+Here are examples of matrix expressions:
+@code
+    // compute pseudo-inverse of A, equivalent to A.inv(DECOMP_SVD)
+    SVD svd(A);
+    Mat pinvA = svd.vt.t()*Mat::diag(1./svd.w)*svd.u.t();
+    // compute the new vector of parameters in the Levenberg-Marquardt algorithm
+    x -= (A.t()*A + lambda*Mat::eye(A.cols,A.cols,A.type())).inv(DECOMP_CHOLESKY)*(A.t()*err);
+    // sharpen image using "unsharp mask" algorithm
+    Mat blurred; double sigma = 1, threshold = 5, amount = 1;
+    GaussianBlur(img, blurred, Size(), sigma, sigma);
+    Mat lowContrastMask = abs(img - blurred) < threshold;
+    Mat sharpened = img*(1+amount) + blurred*(-amount);
+    img.copyTo(sharpened, lowContrastMask);
+@endcode
+*/
 class CV_EXPORTS MatExpr
 {
 public:
