@@ -936,6 +936,11 @@ macro(_ocv_create_module)
     get_native_precompiled_header(${the_module} precomp.hpp)
   endif()
 
+  string(REGEX REPLACE "^opencv_" "opencv${OPENCV_VERSION_MAJOR}_" the_module_output_name "${the_module}")
+  if(OPENCV_DLLVERSION)
+    set(the_module_output_name "${the_module_output_name}${OPENCV_DLLVERSION}")
+  endif()
+
   if(WIN32
       AND (BUILD_SHARED_LIBS AND NOT "x${OPENCV_MODULE_TYPE}" STREQUAL "xSTATIC")
       AND NOT OPENCV_VS_VERSIONINFO_SKIP)
@@ -948,8 +953,8 @@ macro(_ocv_create_module)
       ocv_generate_vs_version_file("${_VS_VERSION_FILE}"
         NAME "${the_module}"
         FILEDESCRIPTION "OpenCV module: ${OPENCV_MODULE_${the_module}_DESCRIPTION}"
-        INTERNALNAME "${the_module}${OPENCV_DLLVERSION}"
-        ORIGINALFILENAME "${the_module}${OPENCV_DLLVERSION}.dll"
+        INTERNALNAME "${the_module_output_name}"
+        ORIGINALFILENAME "${the_module_output_name}.dll"
       )
     endif()
     if(_VS_VERSION_FILE)
@@ -1008,10 +1013,10 @@ macro(_ocv_create_module)
   endif()
 
   set_target_properties(${the_module} PROPERTIES
-    OUTPUT_NAME "${the_module}${OPENCV_DLLVERSION}"
+    OUTPUT_NAME "${the_module_output_name}"
     DEBUG_POSTFIX "${OPENCV_DEBUG_POSTFIX}"
-    COMPILE_PDB_NAME "${the_module}${OPENCV_DLLVERSION}"
-    COMPILE_PDB_NAME_DEBUG "${the_module}${OPENCV_DLLVERSION}${OPENCV_DEBUG_POSTFIX}"
+    COMPILE_PDB_NAME "${the_module_output_name}"
+    COMPILE_PDB_NAME_DEBUG "${the_module_output_name}${OPENCV_DEBUG_POSTFIX}"
     ARCHIVE_OUTPUT_DIRECTORY ${LIBRARY_OUTPUT_PATH}
     COMPILE_PDB_OUTPUT_DIRECTORY ${LIBRARY_OUTPUT_PATH}
     LIBRARY_OUTPUT_DIRECTORY ${LIBRARY_OUTPUT_PATH}
