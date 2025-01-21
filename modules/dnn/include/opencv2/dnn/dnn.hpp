@@ -1672,6 +1672,95 @@ CV__DNN_INLINE_NS_BEGIN
                              float confThreshold = 0.5f, float nmsThreshold = 0.0f);
      };
 
+     /** @brief This class represents high-level API for YOLO object detection networks.
+      *
+      * YoloDetectionModel allows to set params for preprocessing input image.
+      * YoloDetectionModel creates net from file with trained weights and config,
+      * sets preprocessing input, runs forward pass and return result detections.
+      */
+     class CV_EXPORTS_W_SIMPLE YOLODetectionModel : public DetectionModel
+     {
+     public:
+         /**
+          * @brief Creates yolo detection model from network represented in one of the supported formats.
+          * An order of @p model and @p config arguments does not matter.
+          * @param[in] model Binary file contains trained weights.
+          * @param[in] config Text file contains network configuration.
+          * @param[in] version Version of the yolo model.
+          */
+         CV_WRAP YOLODetectionModel(const String& model, const String& config);
+
+         /**
+          * @brief Create model from onnx graph.
+          * @param[in] onnx path to onnx graph.
+          * @param[in] version Version of the yolo model.
+          */
+         CV_WRAP YOLODetectionModel(const String& onnx);
+
+         CV_DEPRECATED_EXTERNAL  // avoid using in C++ code (need to fix bindings first)
+         YOLODetectionModel();
+
+         /**
+          *  @brief Given the @p input frame, create input blob, run net and return result detections.
+          *  @param[in]  frame  The input image.
+          *  @param[out] classIds Class indexes in result detection.
+          *  @param[out] confidences A set of corresponding confidences.
+          *  @param[out] boxes A set of bounding boxes.
+          *  @param[in] confThreshold A threshold used to filter boxes by confidences.
+          *  @param[in] nmsThreshold A threshold used in non maximum suppression.
+          */
+         CV_WRAP void detect(InputArray frame, CV_OUT std::vector<int>& classIds,
+                             CV_OUT std::vector<float>& confidences, CV_OUT std::vector<Rect>& boxes,
+                             float confThreshold = 0.5f, float nmsThreshold = 0.0f);
+
+         /**
+          * @brief Static method for post-processing the detections.
+          *
+          * This method applies scaling and transformation to the detected bounding boxes and
+          * filters them using non-maximum suppression and confidence thresholding.
+          *
+          * @param[in] detections Input detections from the network.
+          * @param[out] boxes Processed bounding boxes after scaling and NMS.
+          * @param[out] confidences Confidence scores for the processed boxes.
+          * @param[out] classIds Class IDs for each processed box.
+          * @param[in] confThreshold Threshold for filtering boxes by confidence.
+          * @param[in] nmsThreshold Threshold for non-maximum suppression.
+          * @param[in] yoloVersion The version of the YOLO model used.
+          * @param[in] darknet Boolean to indicate if darknet architecture is used.
+          * @param[in] nmsAcrossClasses Boolean to indicate if NMS is to be applied across classes.
+          * @param[in] frameWidth Width of the input frame.
+          * @param[in] frameHeight Height of the input frame.
+          */
+         CV_WRAP static void postProccess(
+            std::vector<Mat>& detections,
+            CV_OUT std::vector<Rect>& boxes,
+            CV_OUT std::vector<float>& confidences,
+            CV_OUT std::vector<int>& classIds,
+            Size inputImgSize,
+            const float confThreshold = 0.5f,
+            const float nmsThreshold = 0.4f,
+            const bool nmsAcrossClasses = true
+            );
+         /**
+          * @brief Set the padding mode used in image preprocessing.
+          *
+          * This method sets the padding mode which determines how the input images are padded
+          * and resized before being fed into the network.
+          *
+          * @param[in] paddingMode The padding mode to use.
+          * @return Reference to the current object for chaining calls.
+          */
+        CV_WRAP YOLODetectionModel& setPaddingMode(const ImagePaddingMode paddingMode);
+         /**
+          * @brief Set the padding value used in image preprocessing.
+          *
+          * This method sets the value used to pad the input images during preprocessing.
+          *
+          * @param[in] paddingValue The padding value to use.
+          * @return Reference to the current object for chaining calls.
+          */
+        CV_WRAP YOLODetectionModel& setPaddingValue(const float paddingValue);
+        };
 
 /** @brief This class represents high-level API for text recognition networks.
  *

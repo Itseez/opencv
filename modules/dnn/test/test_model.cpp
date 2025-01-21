@@ -271,6 +271,63 @@ public:
             EXPECT_NEAR(box.angle, gtBox.angle, eps_angle);
         }
     }
+
+    void testYOLODetectionModel(const std::string& weights, const std::string& cfg,
+                                const std::string& imgPath, const std::vector<int>& refClassIds,
+                                const std::vector<float>& refConfidences,
+                                const std::vector<Rect2d>& refBoxes,
+                                double scoreDiff, double iouDiff,
+                                double confThreshold = 0.24, double nmsThreshold = 0.0,
+                                const Size& size = {-1, -1}, Scalar mean = Scalar(),
+                                double scale = 1.0, bool swapRB = false, bool crop = false,
+                                bool nmsAcrossClasses = false, float paddingValue = 0.0,
+                                ImagePaddingMode paddingMode = DNN_PMODE_NULL){
+        checkBackend();
+
+        Mat frame = imread(imgPath);
+
+        YOLODetectionModel model;
+        // Initialize model based on the condition
+        if (cfg == "") {
+            // ONNX test
+            model = YOLODetectionModel(weights);
+        } else {
+            // Darknet test
+            model = YOLODetectionModel(weights, cfg);
+        }
+
+        model.setPaddingMode(paddingMode).setPaddingValue(paddingValue)
+             .setInputSize(size).setInputMean(mean)
+             .setInputScale(scale).setInputSwapRB(swapRB)
+             .setInputCrop(crop);
+
+
+        model.setPreferableBackend(backend);
+        model.setPreferableTarget(target);
+
+        model.setNmsAcrossClasses(nmsAcrossClasses);
+        if (target == DNN_TARGET_CPU_FP16)
+            model.enableWinograd(false);
+
+        std::vector<int> classIds;
+        std::vector<float> confidences;
+        std::vector<Rect> boxes;
+
+        model.detect(frame, classIds, confidences, boxes, confThreshold, nmsThreshold);
+
+        // for (int i=0; i < boxes.size(); i++){
+        //     std::cout << boxes[i].x << " " << boxes[i].y << " " << boxes[i].width << " " << boxes[i].height << " " << confidences[i] << " " << classIds[i] << std::endl;
+        // }
+
+
+        std::vector<Rect2d> boxesDouble(boxes.size());
+        for (int i = 0; i < boxes.size(); i++) {
+            boxesDouble[i] = boxes[i];
+        }
+        normAssertDetections(refClassIds, refConfidences, refBoxes, classIds,
+                             confidences, boxesDouble, "",
+                             confThreshold, scoreDiff, iouDiff);
+    }
 };
 
 TEST_P(Test_Model, Classify)
@@ -833,6 +890,148 @@ TEST_P(Test_Model, TextDetectionByEAST)
     );
 }
 
+TEST_P(Test_Model, YoloDetectionDarknet)
+{
+#if defined(INF_ENGINE_RELEASE) && INF_ENGINE_VER_MAJOR_EQ(2022010000)
+    // Check 'backward_compatible_check || in_out_elements_equal' failed at core/src/op/reshape.cpp:427:
+    // While validating node 'v1::Reshape bbox_pred_reshape (ave_bbox_pred_rois[0]:f32{1,8,1,1}, Constant_388[0]:i64{4}) -> (f32{?,?,?,?})' with friendly_name 'bbox_pred_reshape':
+    // Requested output shape {1,300,8,1} is incompatible with input shape {1, 8, 1, 1}
+    if (backend == DNN_BACKEND_INFERENCE_ENGINE_NGRAPH && target == DNN_TARGET_MYRIAD)
+        applyTestTag(CV_TEST_TAG_DNN_SKIP_IE_MYRIAD, CV_TEST_TAG_DNN_SKIP_IE_NGRAPH, CV_TEST_TAG_DNN_SKIP_IE_VERSION);
+#elif defined(INF_ENGINE_RELEASE) && INF_ENGINE_VER_MAJOR_EQ(2021040000)
+    // Exception: Function contains several inputs and outputs with one friendly name! (HETERO bug?)
+    if (backend == DNN_BACKEND_INFERENCE_ENGINE_NGRAPH && target != DNN_TARGET_CPU)
+        applyTestTag(CV_TEST_TAG_DNN_SKIP_IE_NGRAPH, CV_TEST_TAG_DNN_SKIP_IE_VERSION);
+
+    if (backend == DNN_BACKEND_INFERENCE_ENGINE_NGRAPH && target == DNN_TARGET_MYRIAD)
+        applyTestTag(CV_TEST_TAG_DNN_SKIP_IE_MYRIAD, CV_TEST_TAG_DNN_SKIP_IE_NGRAPH, CV_TEST_TAG_DNN_SKIP_IE_VERSION);
+#elif defined(INF_ENGINE_RELEASE)
+    // FIXIT DNN_BACKEND_INFERENCE_ENGINE is misused
+    if (backend == DNN_BACKEND_INFERENCE_ENGINE && target == DNN_TARGET_OPENCL_FP16)
+        applyTestTag(CV_TEST_TAG_DNN_SKIP_IE_OPENCL_FP16);
+
+    if (target == DNN_TARGET_MYRIAD)
+        applyTestTag(CV_TEST_TAG_DNN_SKIP_IE_MYRIAD);
+#endif
+
+    std::vector<int> refClassIds = {16, 1, 7};
+    std::vector<float> refConfidences = {0.985363f, 0.976825f, 0.937539f};
+    std::vector<Rect2d> refBoxes = {Rect2d(71, 167, 97, 221),
+                                    Rect2d(69, 94, 237, 212),
+                                    Rect2d(250, 54, 125, 70)};
+
+    std::string img_path = _tf("dog416.png");
+    std::string weights_file = _tf("yolov4.weights", false);
+    std::string config_file = _tf("yolov4.cfg");
+
+    Size size{416, 416};
+    Scalar mean = Scalar(0);
+    double scale = 1/255.0;
+    bool swapRB = true;
+    bool crop = false;
+    bool nmsAcrossClasses = true;
+    float paddingValue = 0.0;
+    ImagePaddingMode paddingMode = DNN_PMODE_NULL;
+
+
+    double scoreDiff = default_l1, iouDiff = 1e-5;
+    float confThreshold = 0.5;
+    double nmsThreshold = 0.5;
+    if (target == DNN_TARGET_OPENCL_FP16 || target == DNN_TARGET_CUDA_FP16 || target == DNN_TARGET_CPU_FP16)
+    {
+        if (backend == DNN_BACKEND_OPENCV)
+            scoreDiff = 4e-3;
+        else
+            scoreDiff = 2e-2;
+        iouDiff = 1.8e-1;
+    }
+#if defined(INF_ENGINE_RELEASE)
+        if (backend == DNN_BACKEND_INFERENCE_ENGINE_NGRAPH)
+        {
+            scoreDiff = 0.05;
+            iouDiff = 0.08;
+        }
+#endif
+
+    testYOLODetectionModel(weights_file, config_file, img_path,
+                           refClassIds, refConfidences, refBoxes,
+                           scoreDiff, iouDiff, confThreshold,
+                           nmsThreshold, size, mean, scale,
+                           swapRB, crop, nmsAcrossClasses, paddingValue,
+                           paddingMode);
+}
+
+TEST_P(Test_Model, YoloDetectionONNX)
+{
+#if defined(INF_ENGINE_RELEASE) && INF_ENGINE_VER_MAJOR_EQ(2022010000)
+    // Check 'backward_compatible_check || in_out_elements_equal' failed at core/src/op/reshape.cpp:427:
+    // While validating node 'v1::Reshape bbox_pred_reshape (ave_bbox_pred_rois[0]:f32{1,8,1,1}, Constant_388[0]:i64{4}) -> (f32{?,?,?,?})' with friendly_name 'bbox_pred_reshape':
+    // Requested output shape {1,300,8,1} is incompatible with input shape {1, 8, 1, 1}
+    if (backend == DNN_BACKEND_INFERENCE_ENGINE_NGRAPH && target == DNN_TARGET_MYRIAD)
+        applyTestTag(CV_TEST_TAG_DNN_SKIP_IE_MYRIAD, CV_TEST_TAG_DNN_SKIP_IE_NGRAPH, CV_TEST_TAG_DNN_SKIP_IE_VERSION);
+#elif defined(INF_ENGINE_RELEASE) && INF_ENGINE_VER_MAJOR_EQ(2021040000)
+    // Exception: Function contains several inputs and outputs with one friendly name! (HETERO bug?)
+    if (backend == DNN_BACKEND_INFERENCE_ENGINE_NGRAPH && target != DNN_TARGET_CPU)
+        applyTestTag(CV_TEST_TAG_DNN_SKIP_IE_NGRAPH, CV_TEST_TAG_DNN_SKIP_IE_VERSION);
+
+    if (backend == DNN_BACKEND_INFERENCE_ENGINE_NGRAPH && target == DNN_TARGET_MYRIAD)
+        applyTestTag(CV_TEST_TAG_DNN_SKIP_IE_MYRIAD, CV_TEST_TAG_DNN_SKIP_IE_NGRAPH, CV_TEST_TAG_DNN_SKIP_IE_VERSION);
+#elif defined(INF_ENGINE_RELEASE)
+    // FIXIT DNN_BACKEND_INFERENCE_ENGINE is misused
+    if (backend == DNN_BACKEND_INFERENCE_ENGINE && target == DNN_TARGET_OPENCL_FP16)
+        applyTestTag(CV_TEST_TAG_DNN_SKIP_IE_OPENCL_FP16);
+
+    if (target == DNN_TARGET_MYRIAD)
+        applyTestTag(CV_TEST_TAG_DNN_SKIP_IE_MYRIAD);
+#endif
+
+    std::vector<int> refClassIds = {1, 16, 7};
+    std::vector<float> refConfidences = {0.96067f, 0.900769f, 0.854416f};
+    std::vector<Rect2d> refBoxes = {Rect2d(66, 94, 241, 208),
+                                    Rect2d(70, 161, 96, 228),
+                                    Rect2d(252, 53, 123, 70),
+                                    };
+
+    std::string img_path = _tf("dog416.png");
+    std::string weights_file = _tf("/onnx/models/yolox_s_inf_decoder.onnx", false);
+    std::string config_file = "";
+
+    Size size{640, 640};
+    Scalar mean = Scalar(0);
+    double scale = 1.0;
+    bool swapRB = true;
+    bool crop = false;
+    bool nmsAcrossClasses = false;
+    float paddingValue = 114.0;
+    ImagePaddingMode paddingMode = DNN_PMODE_LETTERBOX;
+
+
+    double scoreDiff = default_l1, iouDiff = 1e-5;
+    float confThreshold = 0.5;
+    double nmsThreshold = 0.5;
+    if (target == DNN_TARGET_OPENCL_FP16 || target == DNN_TARGET_CUDA_FP16 || target == DNN_TARGET_CPU_FP16)
+    {
+        if (backend == DNN_BACKEND_OPENCV)
+            scoreDiff = 4e-3;
+        else
+            scoreDiff = 2e-2;
+        iouDiff = 1.8e-1;
+    }
+#if defined(INF_ENGINE_RELEASE)
+        if (backend == DNN_BACKEND_INFERENCE_ENGINE_NGRAPH)
+        {
+            scoreDiff = 0.05;
+            iouDiff = 0.08;
+        }
+#endif
+
+    testYOLODetectionModel(weights_file, config_file, img_path,
+                           refClassIds, refConfidences, refBoxes,
+                           scoreDiff, iouDiff, confThreshold,
+                           nmsThreshold, size, mean, scale,
+                           swapRB, crop, nmsAcrossClasses, paddingValue,
+                           paddingMode);
+}
 INSTANTIATE_TEST_CASE_P(/**/, Test_Model, dnnBackendsAndTargets());
 
 }} // namespace

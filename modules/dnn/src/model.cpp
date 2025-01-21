@@ -651,6 +651,265 @@ void DetectionModel::detect(InputArray frame, CV_OUT std::vector<int>& classIds,
         CV_Error(Error::StsNotImplemented, "Unknown output layer type: \"" + lastLayer->type + "\"");
 }
 
+class YOLODetectionModel_Impl : public DetectionModel_Impl
+{
+
+    ImagePaddingMode paddingMode;
+    float padValue;
+    Size2f frameSize;
+
+    public:
+    YOLODetectionModel_Impl() {
+        //nothing
+    }
+
+    void processFrame(InputArray frame, OutputArrayOfArrays outs)
+    {
+        CV_TRACE_FUNCTION();
+        if (size.empty())
+            CV_Error(Error::StsBadSize, "Input size not specified");
+
+        frameSize.width = frame.cols();
+        frameSize.height = frame.rows();
+
+        Image2BlobParams param;
+        param.scalefactor = scale;
+        param.size = size;
+        param.mean = mean;
+        param.swapRB = swapRB;
+        param.borderValue = padValue;
+        param.paddingmode = paddingMode;
+
+        Mat blob = dnn::blobFromImageWithParams(frame, param);
+        net.setInput(blob);
+
+        net.forward(outs, outNames);
+    }
+
+    void setPaddingValue(const float padValue_){
+        padValue = padValue_;
+    }
+
+    void setPaddingMode(const ImagePaddingMode paddingmode_){
+        if (paddingmode_ == ImagePaddingMode::DNN_PMODE_NULL ||
+            paddingmode_ == ImagePaddingMode::DNN_PMODE_CROP_CENTER ||
+            paddingmode_ == ImagePaddingMode::DNN_PMODE_LETTERBOX){
+            paddingMode = paddingmode_;
+            } else {
+                CV_Error(Error::StsNotImplemented, "Unsupported padding mode");
+            }
+    }
+
+    void setInputParams(double scale_, const Size& size_, const Scalar& mean_,
+                        bool swapRB_, ImagePaddingMode paddingMode_, float padValue_)
+    {
+        size = size_;
+        mean = mean_;
+        scale = Scalar::all(scale_);
+        swapRB = swapRB_;
+        paddingMode = paddingMode_;
+        padValue = padValue_;
+    }
+
+    void detect(InputArray frame, CV_OUT std::vector<int>& classIds,
+                            CV_OUT std::vector<float>& confidences, CV_OUT std::vector<Rect>& boxes,
+                            float confThreshold, float nmsThreshold){
+
+        std::vector<Mat> detections;
+        processFrame(frame, detections);
+
+        YOLODetectionModel::postProccess(
+            detections,
+            boxes,
+            confidences,
+            classIds,
+            size,
+            confThreshold,
+            nmsThreshold,
+            getNmsAcrossClasses()
+            );
+
+            Image2BlobParams paramNet;
+            paramNet.scalefactor = scale;
+            paramNet.size = size;
+            paramNet.mean = mean;
+            paramNet.swapRB = swapRB;
+            paramNet.paddingmode = paddingMode;
+            paramNet.blobRectsToImageRects(boxes, boxes, frameSize);
+    }
+};
+
+YOLODetectionModel::YOLODetectionModel(const String& model, const String& config)
+{
+    impl = makePtr<YOLODetectionModel_Impl>();
+    impl->initNet(readNet(model, config));
+}
+
+YOLODetectionModel::YOLODetectionModel(const String& onnx)
+{
+    impl = makePtr<YOLODetectionModel_Impl>();
+    impl->initNet(readNetFromONNX(onnx));
+}
+
+YOLODetectionModel::YOLODetectionModel()
+{
+    impl = std::static_pointer_cast<Model::Impl>(makePtr<YOLODetectionModel_Impl>());
+}
+
+void YOLODetectionModel::detect(InputArray frame, CV_OUT std::vector<int>& classIds,
+                            CV_OUT std::vector<float>& confidences, CV_OUT std::vector<Rect>& boxes,
+                            float confThreshold, float nmsThreshold) {
+    impl.dynamicCast<YOLODetectionModel_Impl>()->detect(frame, classIds,
+                            confidences, boxes, confThreshold, nmsThreshold);
+}
+
+void YOLODetectionModel::postProccess(
+    std::vector<Mat>& detections,
+    CV_OUT std::vector<Rect>& keep_boxes,
+    CV_OUT std::vector<float>& keep_confidences,
+    CV_OUT std::vector<int>& keep_classIds,
+    Size inputImgSize,
+    const float confThreshold,
+    const float nmsThreshold,
+    const bool nmsAcrossClasses
+    ){
+
+    bool yolov8 = false;
+    bool darknet = false;
+
+    if (detections[0].dims == 2){
+        darknet = true;
+    }
+
+    if (!darknet && detections[0].size[1] < detections[0].size[2]) {
+        yolov8 = true;  // Set the correct flag based on tensor shape
+    }
+
+    // Retrieve
+    std::vector<int> classIds;
+    std::vector<float> confidences;
+    std::vector<Rect> boxes;
+
+    if (yolov8){
+        for(auto & detection : detections){
+            cv::transposeND(detection, {0, 2, 1}, detection);
+        }
+    }
+
+    // each row is [cx, cy, w, h, conf_obj, conf_class1, ..., conf_class80]
+    for (auto preds : detections)
+    {
+        if (!darknet)
+            preds = preds.reshape(1, preds.size[1]);
+
+        for (int i = 0; i < preds.rows; ++i)
+        {
+            // filter out non objects
+            float obj_conf = (!yolov8) ? preds.at<float>(i, 4) : 1.0f;
+            if (obj_conf < confThreshold)
+                continue;
+
+            Mat scores = preds.row(i).colRange((!yolov8) ? 5 : 4, preds.cols);
+            double conf;
+            Point maxLoc;
+            minMaxLoc(scores, 0, &conf, 0, &maxLoc);
+
+            conf = (!yolov8) ? conf * obj_conf : conf;
+            if (conf < confThreshold)
+                continue;
+
+            // get bbox coords
+            float* det = preds.ptr<float>(i);
+            double cx = det[0];
+            double cy = det[1];
+            double w = det[2];
+            double h = det[3];
+
+            // [x1, y1, x2, y2]
+            double x1 = cx - 0.5 * w;
+            double y1 = cy - 0.5 * h;
+            double x2 = cx + 0.5 * w;
+            double y2 = cy + 0.5 * h;
+
+
+            int width  = x2 - x1 + 1;
+            int height = y2 - y1 + 1;
+
+            if (width <= 2 || height <= 2)
+            {
+                x1  = x1 * inputImgSize.width;
+                y1  = y1 * inputImgSize.height;
+                x2  = x2 * inputImgSize.width;
+                y2  = y2 * inputImgSize.height;
+                width  = x2 - x1 + 1;
+                height = y2 - y1 + 1;
+            }
+
+            boxes.emplace_back(Rect(x1, y1, x2, y2));
+            classIds.emplace_back(maxLoc.x);
+            confidences.emplace_back(conf);
+        }
+    }
+
+    // NMS
+    if (nmsAcrossClasses)
+    {
+        std::vector<int> keep_idx;
+        NMSBoxes(boxes, confidences, confThreshold, nmsThreshold, keep_idx);
+        for (auto i : keep_idx)
+        {
+            keep_classIds.emplace_back(classIds[i]);
+            keep_confidences.emplace_back(confidences[i]);
+            keep_boxes.emplace_back(boxes[i]);
+        }
+    }
+    else
+    {
+        std::map<int, std::vector<size_t> > class2indices;
+        for (size_t i = 0; i < classIds.size(); i++)
+        {
+            if (confidences[i] >= confThreshold)
+            {
+                class2indices[classIds[i]].push_back(i);
+            }
+        }
+        for (const auto& it : class2indices)
+        {
+            std::vector<Rect> localBoxes;
+            std::vector<float> localConfidences;
+            for (size_t idx : it.second)
+            {
+                localBoxes.push_back(boxes[idx]);
+                localConfidences.push_back(confidences[idx]);
+            }
+            std::vector<int> indices;
+            NMSBoxes(localBoxes, localConfidences, confThreshold, nmsThreshold, indices);
+
+            keep_classIds.resize(keep_classIds.size() + indices.size(), it.first);
+            for (int idx : indices)
+            {
+                keep_boxes.push_back(localBoxes[idx]);
+                keep_confidences.push_back(localConfidences[idx]);
+            }
+        }
+    }
+    // convert boxes to xywh
+    for(auto & box : keep_boxes){
+        box.width = box.width - box.x;
+        box.height = box.height - box.y;
+    }
+}
+
+YOLODetectionModel& YOLODetectionModel::setPaddingMode(const ImagePaddingMode paddingMode){
+    impl.dynamicCast<YOLODetectionModel_Impl>()->setPaddingMode(paddingMode);
+    return *this;
+}
+
+YOLODetectionModel& YOLODetectionModel::setPaddingValue(const float PadingValue){
+    impl.dynamicCast<YOLODetectionModel_Impl>()->setPaddingValue(PadingValue);
+    return *this;
+}
+
 struct TextRecognitionModel_Impl : public Model::Impl
 {
     std::string decodeType;
