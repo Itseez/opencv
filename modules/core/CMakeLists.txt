@@ -127,6 +127,9 @@ endif()
 if(OPENCV_LIBVA_LINK)
   ocv_append_source_file_compile_definitions("${CMAKE_CURRENT_LIST_DIR}/src/va_intel.cpp" "OPENCV_LIBVA_LINK=1")
 endif()
+if(OPENCV_ENABLE_EGL_INTEROP)
+  ocv_append_source_file_compile_definitions("${CMAKE_CURRENT_LIST_DIR}/src/opengl.cpp" "HAVE_EGL_INTEROP")
+endif()
 
 option(OPENCV_ENABLE_ALLOCATOR_STATS "Enable Allocator metrics" ON)
 
@@ -173,8 +176,7 @@ ocv_create_module(${extra_libs})
 
 ocv_target_link_libraries(${the_module} PRIVATE
     "${ZLIB_LIBRARIES}" "${OPENCL_LIBRARIES}" "${VA_LIBRARIES}"
-    "${OPENGL_LIBRARIES}"
-    "${GLX_LIBRARIES}"
+    "${OPENGL_LIBRARIES}" "${OPENGL_egl_LIBRARY}"
     "${LAPACK_LIBRARIES}" "${CPUFEATURES_LIBRARIES}" "${HALIDE_LIBRARIES}"
     "${ITT_LIBRARIES}"
     "${OPENCV_HAL_LINKER_LIBS}"

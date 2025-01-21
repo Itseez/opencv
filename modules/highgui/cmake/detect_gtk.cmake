@@ -42,7 +42,7 @@ endif()
 
 if(WITH_OPENGL)
   find_package(OpenGL QUIET)
-  if(OPENGL_FOUND)
+  if(OPENGL_FOUND AND (HAVE_GLX OR HAVE_EGL))
     set(HAVE_OPENGL TRUE)
     ocv_add_external_target(gtk_opengl "${OPENGL_INCLUDE_DIRS}" "${OPENGL_LIBRARIES}" "HAVE_OPENGL")
   endif()
