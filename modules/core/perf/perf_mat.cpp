@@ -166,4 +166,30 @@ PERF_TEST_P(Size_MatType, Mat_Transform,
     SANITY_CHECK(dst, 1e-6, ERROR_RELATIVE);
 }
 
+PERF_TEST_P(Size_MatType, Mat_Transform_Diagonal,
+            testing::Combine(testing::Values(szVGA, sz720p, sz1080p),
+                             testing::Values(CV_8UC3, CV_8SC3, CV_16UC3, CV_16SC3, CV_32SC3, CV_32FC3, CV_64FC3))
+            )
+{
+    const Size_MatType_t params = GetParam();
+    const Size srcSize0 = get<0>(params);
+    const Size srcSize = Size(1, srcSize0.width*srcSize0.height);
+    const int type = get<1>(params);
+    const float transform[] = { 0.5f,            0.f,           0.f, 128,
+                                 0.f, 0.86602540378f,           0.f, -64,
+                                 0.f,            0.f, 0.4330127019f,  32, };
+    Mat mtx(Size(4, 3), CV_32FC1, (void*)transform);
+
+    Mat src(srcSize, type), dst(srcSize, type);
+    randu(src, 0, 30);
+    declare.in(src).out(dst);
+
+    TEST_CYCLE()
+    {
+        cv::transform(src, dst, mtx);
+    }
+
+    SANITY_CHECK(dst, 1e-6, ERROR_RELATIVE);
+}
+
 } // namespace

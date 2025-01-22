@@ -1682,24 +1682,232 @@ transform_32f( const float* src, float* dst, const float* m, int len, int scn, i
 static void
 transform_8s(const schar* src, schar* dst, const float* m, int len, int scn, int dcn)
 {
+#if (CV_SIMD || CV_SIMD_SCALABLE)
+    const int BITS = 10, SCALE = 1 << BITS;
+    const float MAX_M = (float)(1 << (15 - BITS));
+
+    if( scn == 3 && dcn == 3 &&
+        std::abs(m[0]) < MAX_M && std::abs(m[1]) < MAX_M && std::abs(m[ 2]) < MAX_M*256 && std::abs(m[ 3]) < MAX_M*256 &&
+        std::abs(m[4]) < MAX_M && std::abs(m[5]) < MAX_M && std::abs(m[ 6]) < MAX_M*256 && std::abs(m[ 7]) < MAX_M*256 &&
+        std::abs(m[8]) < MAX_M && std::abs(m[9]) < MAX_M && std::abs(m[10]) < MAX_M*256 && std::abs(m[11]) < MAX_M*256 )
+    {
+        const int nChannels = 3;
+
+        union {
+            short s[6];
+            int p[3];
+        } m16;
+        m16.s[0] = saturate_cast<short>(m[0] * SCALE); m16.s[1] = saturate_cast<short>(m[1] * SCALE);
+        m16.s[2] = saturate_cast<short>(m[4] * SCALE); m16.s[3] = saturate_cast<short>(m[5] * SCALE);
+        m16.s[4] = saturate_cast<short>(m[8] * SCALE); m16.s[5] = saturate_cast<short>(m[9] * SCALE);
+        int m32[] = {saturate_cast<int>(m[ 2] * SCALE), saturate_cast<int>(m[ 3] * SCALE),
+                     saturate_cast<int>(m[ 6] * SCALE), saturate_cast<int>(m[ 7] * SCALE),
+                     saturate_cast<int>(m[10] * SCALE), saturate_cast<int>(m[11] * SCALE)};
+        v_int16 m01 = v_reinterpret_as_s16(vx_setall_s32(m16.p[0]));
+        v_int32 m2 = vx_setall_s32(m32[0]);
+        v_int32 m3 = vx_setall_s32(m32[1]);
+        v_int16 m45 = v_reinterpret_as_s16(vx_setall_s32(m16.p[1]));
+        v_int32 m6 = vx_setall_s32(m32[2]);
+        v_int32 m7 = vx_setall_s32(m32[3]);
+        v_int16 m89 = v_reinterpret_as_s16(vx_setall_s32(m16.p[2]));
+        v_int32 m10 = vx_setall_s32(m32[4]);
+        v_int32 m11 = vx_setall_s32(m32[5]);
+        int x = 0;
+        for (; x <= (len - VTraits<v_int8>::vlanes()) * nChannels; x += VTraits<v_int8>::vlanes() * nChannels)
+        {
+            v_int8 b, g, r;
+            v_load_deinterleave(src + x, b, g, r);
+            v_int8 bgl, bgh;
+            v_zip(b, g, bgl, bgh);
+            v_int16 rl, rh;
+            v_expand(r, rl, rh);
+
+            v_int16 dbl, dbh, dgl, dgh, drl, drh;
+            v_int16 p0, p2;
+            v_int32 p1, p3;
+            v_expand(bgl, p0, p2);
+            v_expand(v_reinterpret_as_s16(rl), p1, p3);
+            dbl = v_rshr_pack<BITS>(v_add(v_add(v_dotprod(p0, m01), v_mul(p1, m2)), m3),
+                                    v_add(v_add(v_dotprod(p2, m01), v_mul(p3, m2)), m3));
+            dgl = v_rshr_pack<BITS>(v_add(v_add(v_dotprod(p0, m45), v_mul(p1, m6)), m7),
+                                    v_add(v_add(v_dotprod(p2, m45), v_mul(p3, m6)), m7));
+            drl = v_rshr_pack<BITS>(v_add(v_add(v_dotprod(p0, m89), v_mul(p1, m10)), m11),
+                                    v_add(v_add(v_dotprod(p2, m89), v_mul(p3, m10)), m11));
+            v_expand(bgh, p0, p2);
+            v_expand(v_reinterpret_as_s16(rh), p1, p3);
+            dbh = v_rshr_pack<BITS>(v_add(v_add(v_dotprod(p0, m01), v_mul(p1, m2)), m3),
+                                    v_add(v_add(v_dotprod(p2, m01), v_mul(p3, m2)), m3));
+            dgh = v_rshr_pack<BITS>(v_add(v_add(v_dotprod(p0, m45), v_mul(p1, m6)), m7),
+                                    v_add(v_add(v_dotprod(p2, m45), v_mul(p3, m6)), m7));
+            drh = v_rshr_pack<BITS>(v_add(v_add(v_dotprod(p0, m89), v_mul(p1, m10)), m11),
+                                    v_add(v_add(v_dotprod(p2, m89), v_mul(p3, m10)), m11));
+            v_store_interleave(dst + x, v_pack(dbl, dbh), v_pack(dgl, dgh), v_pack(drl, drh));
+        }
+        m32[1] = saturate_cast<int>((m[3] + 0.5f)*SCALE);
+        m32[3] = saturate_cast<int>((m[7] + 0.5f)*SCALE);
+        m32[5] = saturate_cast<int>((m[11] + 0.5f)*SCALE);
+        for( ; x < len * nChannels; x += nChannels )
+        {
+            int v0 = src[x], v1 = src[x+1], v2 = src[x+2];
+            schar t0 = saturate_cast<schar>((m16.s[0] * v0 + m16.s[1] * v1 + m32[0] * v2 + m32[1]) >> BITS);
+            schar t1 = saturate_cast<schar>((m16.s[2] * v0 + m16.s[3] * v1 + m32[2] * v2 + m32[3]) >> BITS);
+            schar t2 = saturate_cast<schar>((m16.s[4] * v0 + m16.s[5] * v1 + m32[4] * v2 + m32[5]) >> BITS);
+            dst[x] = t0; dst[x+1] = t1; dst[x+2] = t2;
+        }
+        vx_cleanup();
+        return;
+    }
+#endif
+
     transform_(src, dst, m, len, scn, dcn);
 }
 
 static void
 transform_16s(const short* src, short* dst, const float* m, int len, int scn, int dcn)
 {
+#if (CV_SIMD || CV_SIMD_SCALABLE)
+    if (scn == 3 && dcn == 3) {
+        int x = 0;
+
+        v_float32 m0  = vx_setall_f32(m[ 0]);
+        v_float32 m1  = vx_setall_f32(m[ 1]);
+        v_float32 m2  = vx_setall_f32(m[ 2]);
+        v_float32 m3  = vx_setall_f32(m[ 3]);
+        v_float32 m4  = vx_setall_f32(m[ 4]);
+        v_float32 m5  = vx_setall_f32(m[ 5]);
+        v_float32 m6  = vx_setall_f32(m[ 6]);
+        v_float32 m7  = vx_setall_f32(m[ 7]);
+        v_float32 m8  = vx_setall_f32(m[ 8]);
+        v_float32 m9  = vx_setall_f32(m[ 9]);
+        v_float32 m10 = vx_setall_f32(m[10]);
+        v_float32 m11 = vx_setall_f32(m[11]);
+        for (; x <= (len - VTraits<v_int16>::vlanes())*3; x +=  VTraits<v_int16>::vlanes()*3)
+        {
+            v_int16 b, g, r;
+            v_load_deinterleave(src + x, b, g, r);
+            v_int32 bl, bh, gl, gh, rl, rh;
+            v_expand(b, bl, bh);
+            v_expand(g, gl, gh);
+            v_expand(r, rl, rh);
+
+            v_int16 db, dg, dr;
+            db = v_pack(v_round(v_muladd(v_cvt_f32(bl), m0, v_muladd(v_cvt_f32(gl), m1, v_muladd(v_cvt_f32(rl),  m2,  m3)))),
+                        v_round(v_muladd(v_cvt_f32(bh), m0, v_muladd(v_cvt_f32(gh), m1, v_muladd(v_cvt_f32(rh),  m2,  m3)))));
+            dg = v_pack(v_round(v_muladd(v_cvt_f32(bl), m4, v_muladd(v_cvt_f32(gl), m5, v_muladd(v_cvt_f32(rl),  m6,  m7)))),
+                        v_round(v_muladd(v_cvt_f32(bh), m4, v_muladd(v_cvt_f32(gh), m5, v_muladd(v_cvt_f32(rh),  m6,  m7)))));
+            dr = v_pack(v_round(v_muladd(v_cvt_f32(bl), m8, v_muladd(v_cvt_f32(gl), m9, v_muladd(v_cvt_f32(rl), m10, m11)))),
+                        v_round(v_muladd(v_cvt_f32(bh), m8, v_muladd(v_cvt_f32(gh), m9, v_muladd(v_cvt_f32(rh), m10, m11)))));
+            v_store_interleave(dst + x, db, dg, dr);
+        }
+        for( ; x < len * 3; x += 3 )
+        {
+            float v0 = src[x], v1 = src[x + 1], v2 = src[x + 2];
+            short t0 = saturate_cast<short>(m[0] * v0 + m[1] * v1 + m[ 2] * v2 + m[ 3]);
+            short t1 = saturate_cast<short>(m[4] * v0 + m[5] * v1 + m[ 6] * v2 + m[ 7]);
+            short t2 = saturate_cast<short>(m[8] * v0 + m[9] * v1 + m[10] * v2 + m[11]);
+            dst[x] = t0; dst[x + 1] = t1; dst[x + 2] = t2;
+        }
+        vx_cleanup();
+        return;
+    }
+#endif
+
     transform_(src, dst, m, len, scn, dcn);
 }
 
 static void
 transform_32s(const int* src, int* dst, const double* m, int len, int scn, int dcn)
 {
+#if (CV_SIMD_64F || CV_SIMD_SCALABLE_64F)
+    if( scn == 3 && dcn == 3) {
+        int x = 0;
+
+        v_float64 m0  = vx_setall_f64(m[ 0]);
+        v_float64 m1  = vx_setall_f64(m[ 1]);
+        v_float64 m2  = vx_setall_f64(m[ 2]);
+        v_float64 m3  = vx_setall_f64(m[ 3]);
+        v_float64 m4  = vx_setall_f64(m[ 4]);
+        v_float64 m5  = vx_setall_f64(m[ 5]);
+        v_float64 m6  = vx_setall_f64(m[ 6]);
+        v_float64 m7  = vx_setall_f64(m[ 7]);
+        v_float64 m8  = vx_setall_f64(m[ 8]);
+        v_float64 m9  = vx_setall_f64(m[ 9]);
+        v_float64 m10 = vx_setall_f64(m[10]);
+        v_float64 m11 = vx_setall_f64(m[11]);
+        for (; x <= (len - VTraits<v_int32>::vlanes()) * 3; x += VTraits<v_int32>::vlanes() * 3) {
+            v_int32 b, g, r;
+            v_load_deinterleave(src + x, b, g, r);
+            v_float64 bh = v_cvt_f64_high(b), bl = v_cvt_f64(b);
+            v_float64 gh = v_cvt_f64_high(g), gl = v_cvt_f64(g);
+            v_float64 rh = v_cvt_f64_high(r), rl = v_cvt_f64(r);
+
+            v_int32 db, dg, dr;
+            db = v_round(v_fma(bl, m0, v_fma(gl, m1, v_fma(rl,  m2,  m3))),
+                         v_fma(bh, m0, v_fma(gh, m1, v_fma(rh,  m2,  m3))));
+            dg = v_round(v_fma(bl, m4, v_fma(gl, m5, v_fma(rl,  m6,  m7))),
+                         v_fma(bh, m4, v_fma(gh, m5, v_fma(rh,  m6,  m7))));
+            dr = v_round(v_fma(bl, m8, v_fma(gl, m9, v_fma(rl, m10, m11))),
+                         v_fma(bh, m8, v_fma(gh, m9, v_fma(rh, m10, m11))));
+
+            v_store_interleave(dst + x, db, dg, dr);
+        }
+        for (; x < len * 3; x += 3) {
+            double b = src[x], g = src[x + 1], r = src[x + 2];
+            int db = saturate_cast<int>(m[0] * b + m[1] * g + m[ 2] * r + m[ 3]);
+            int dg = saturate_cast<int>(m[4] * b + m[5] * g + m[ 6] * r + m[ 7]);
+            int dr = saturate_cast<int>(m[8] * b + m[9] * g + m[10] * r + m[11]);
+            dst[x] = db; dst[x + 1] = dg; dst[x + 2] = dr;
+        }
+        vx_cleanup();
+        return;
+    }
+#endif
+
     transform_(src, dst, m, len, scn, dcn);
 }
 
 static void
 transform_64f(const double* src, double* dst, const double* m, int len, int scn, int dcn)
 {
+#if (CV_SIMD_64F || CV_SIMD_SCALABLE_64F)
+    if( scn == 3 && dcn == 3) {
+        int x = 0;
+
+        v_float64 m0  = vx_setall_f64(m[ 0]);
+        v_float64 m1  = vx_setall_f64(m[ 1]);
+        v_float64 m2  = vx_setall_f64(m[ 2]);
+        v_float64 m3  = vx_setall_f64(m[ 3]);
+        v_float64 m4  = vx_setall_f64(m[ 4]);
+        v_float64 m5  = vx_setall_f64(m[ 5]);
+        v_float64 m6  = vx_setall_f64(m[ 6]);
+        v_float64 m7  = vx_setall_f64(m[ 7]);
+        v_float64 m8  = vx_setall_f64(m[ 8]);
+        v_float64 m9  = vx_setall_f64(m[ 9]);
+        v_float64 m10 = vx_setall_f64(m[10]);
+        v_float64 m11 = vx_setall_f64(m[11]);
+        for (; x <= (len - VTraits<v_float64>::vlanes()) * 3; x += VTraits<v_float64>::vlanes() * 3) {
+            v_float64 b, g, r;
+            v_load_deinterleave(src + x, b, g, r);
+
+            v_float64 db, dg, dr;
+            db = v_fma(b, m0, v_fma(g, m1, v_fma(r,  m2,  m3)));
+            dg = v_fma(b, m4, v_fma(g, m5, v_fma(r,  m6,  m7)));
+            dr = v_fma(b, m8, v_fma(g, m9, v_fma(r, m10, m11)));
+
+            v_store_interleave(dst + x, db, dg, dr);
+        }
+        for (; x < len * 3; x += 3) {
+            double b = src[x], g = src[x + 1], r = src[x + 2];
+            double db = saturate_cast<double>(m[0] * b + m[1] * g + m[ 2] * r + m[ 3]);
+            double dg = saturate_cast<double>(m[4] * b + m[5] * g + m[ 6] * r + m[ 7]);
+            double dr = saturate_cast<double>(m[8] * b + m[9] * g + m[10] * r + m[11]);
+            dst[x] = db; dst[x + 1] = dg; dst[x + 2] = dr;
+        }
+        vx_cleanup();
+        return;
+    }
+#endif
+
     transform_(src, dst, m, len, scn, dcn);
 }
 
@@ -1753,42 +1961,358 @@ diagtransform_( const T* src, T* dst, const WT* m, int len, int cn, int )
 static void
 diagtransform_8u(const uchar* src, uchar* dst, const float* m, int len, int scn, int dcn)
 {
+#if (CV_SIMD || CV_SIMD_SCALABLE)
+    if (scn == 3 && dcn == 3) {
+        int x = 0;
+
+        v_float32 m0  = vx_setall_f32(m[ 0]);
+        v_float32 m3  = vx_setall_f32(m[ 3]);
+        v_float32 m5  = vx_setall_f32(m[ 5]);
+        v_float32 m7  = vx_setall_f32(m[ 7]);
+        v_float32 m10 = vx_setall_f32(m[10]);
+        v_float32 m11 = vx_setall_f32(m[11]);
+        for (; x <= (len - VTraits<v_uint8>::vlanes()) * 3; x += VTraits<v_uint8>::vlanes() * 3) {
+            v_uint8 b, g, r;
+            v_load_deinterleave(src + x, b, g, r);
+            v_uint16 b_u16_l, g_u16_l, r_u16_l;
+            v_uint16 b_u16_h, g_u16_h, r_u16_h;
+            v_expand(b, b_u16_l, b_u16_h);
+            v_expand(g, g_u16_l, g_u16_h);
+            v_expand(r, r_u16_l, r_u16_h);
+
+            v_uint32 b_u32_l0, g_u32_l0, r_u32_l0;
+            v_uint32 b_u32_l1, g_u32_l1, r_u32_l1;
+            v_uint32 b_u32_h0, g_u32_h0, r_u32_h0;
+            v_uint32 b_u32_h1, g_u32_h1, r_u32_h1;
+            v_expand(b_u16_l, b_u32_l0, b_u32_l1);
+            v_expand(b_u16_h, b_u32_h0, b_u32_h1);
+            v_expand(g_u16_l, g_u32_l0, g_u32_l1);
+            v_expand(g_u16_h, g_u32_h0, g_u32_h1);
+            v_expand(r_u16_l, r_u32_l0, r_u32_l1);
+            v_expand(r_u16_h, r_u32_h0, r_u32_h1);
+
+            v_float32 db_f32_l0 = v_fma( m0, v_cvt_f32(v_reinterpret_as_s32(b_u32_l0)),  m3);
+            v_float32 db_f32_l1 = v_fma( m0, v_cvt_f32(v_reinterpret_as_s32(b_u32_l1)),  m3);
+            v_float32 db_f32_h0 = v_fma( m0, v_cvt_f32(v_reinterpret_as_s32(b_u32_h0)),  m3);
+            v_float32 db_f32_h1 = v_fma( m0, v_cvt_f32(v_reinterpret_as_s32(b_u32_h1)),  m3);
+
+            v_float32 dg_f32_l0 = v_fma( m5, v_cvt_f32(v_reinterpret_as_s32(g_u32_l0)),  m7);
+            v_float32 dg_f32_l1 = v_fma( m5, v_cvt_f32(v_reinterpret_as_s32(g_u32_l1)),  m7);
+            v_float32 dg_f32_h0 = v_fma( m5, v_cvt_f32(v_reinterpret_as_s32(g_u32_h0)),  m7);
+            v_float32 dg_f32_h1 = v_fma( m5, v_cvt_f32(v_reinterpret_as_s32(g_u32_h1)),  m7);
+
+            v_float32 dr_f32_l0 = v_fma(m10, v_cvt_f32(v_reinterpret_as_s32(r_u32_l0)), m11);
+            v_float32 dr_f32_l1 = v_fma(m10, v_cvt_f32(v_reinterpret_as_s32(r_u32_l1)), m11);
+            v_float32 dr_f32_h0 = v_fma(m10, v_cvt_f32(v_reinterpret_as_s32(r_u32_h0)), m11);
+            v_float32 dr_f32_h1 = v_fma(m10, v_cvt_f32(v_reinterpret_as_s32(r_u32_h1)), m11);
+
+            v_store_interleave(dst + x,
+                               v_pack(v_pack_u(v_round(db_f32_l0), v_round(db_f32_l1)), v_pack_u(v_round(db_f32_h0), v_round(db_f32_h1))),
+                               v_pack(v_pack_u(v_round(dg_f32_l0), v_round(dg_f32_l1)), v_pack_u(v_round(dg_f32_h0), v_round(dg_f32_h1))),
+                               v_pack(v_pack_u(v_round(dr_f32_l0), v_round(dr_f32_l1)), v_pack_u(v_round(dr_f32_h0), v_round(dr_f32_h1))));
+        }
+        for (; x < len * 3; x += 3) {
+            int b = src[x], g = src[x + 1], r = src[x + 2];
+            uchar db = saturate_cast<uchar>(m[ 0] * b + m[ 3]);
+            uchar dg = saturate_cast<uchar>(m[ 5] * g + m[ 7]);
+            uchar dr = saturate_cast<uchar>(m[10] * r + m[11]);
+            dst[x] = db; dst[x + 1] = dg; dst[x + 2] = dr;
+        }
+        vx_cleanup();
+        return;
+    }
+#endif
+
     diagtransform_(src, dst, m, len, scn, dcn);
 }
 
 static void
 diagtransform_8s(const schar* src, schar* dst, const float* m, int len, int scn, int dcn)
 {
+    #if (CV_SIMD || CV_SIMD_SCALABLE)
+    if (scn == 3 && dcn == 3) {
+        int x = 0;
+
+        v_float32 m0  = vx_setall_f32(m[ 0]);
+        v_float32 m3  = vx_setall_f32(m[ 3]);
+        v_float32 m5  = vx_setall_f32(m[ 5]);
+        v_float32 m7  = vx_setall_f32(m[ 7]);
+        v_float32 m10 = vx_setall_f32(m[10]);
+        v_float32 m11 = vx_setall_f32(m[11]);
+        for (; x <= (len - VTraits<v_int8>::vlanes()) * 3; x += VTraits<v_int8>::vlanes() * 3) {
+            v_int8 b, g, r;
+            v_load_deinterleave(src + x, b, g, r);
+            v_int16 b_u16_l, g_u16_l, r_u16_l;
+            v_int16 b_u16_h, g_u16_h, r_u16_h;
+            v_expand(b, b_u16_l, b_u16_h);
+            v_expand(g, g_u16_l, g_u16_h);
+            v_expand(r, r_u16_l, r_u16_h);
+
+            v_int32 b_u32_l0, g_u32_l0, r_u32_l0;
+            v_int32 b_u32_l1, g_u32_l1, r_u32_l1;
+            v_int32 b_u32_h0, g_u32_h0, r_u32_h0;
+            v_int32 b_u32_h1, g_u32_h1, r_u32_h1;
+            v_expand(b_u16_l, b_u32_l0, b_u32_l1);
+            v_expand(b_u16_h, b_u32_h0, b_u32_h1);
+            v_expand(g_u16_l, g_u32_l0, g_u32_l1);
+            v_expand(g_u16_h, g_u32_h0, g_u32_h1);
+            v_expand(r_u16_l, r_u32_l0, r_u32_l1);
+            v_expand(r_u16_h, r_u32_h0, r_u32_h1);
+
+            v_float32 db_f32_l0 = v_fma( m0, v_cvt_f32(b_u32_l0),  m3);
+            v_float32 db_f32_l1 = v_fma( m0, v_cvt_f32(b_u32_l1),  m3);
+            v_float32 db_f32_h0 = v_fma( m0, v_cvt_f32(b_u32_h0),  m3);
+            v_float32 db_f32_h1 = v_fma( m0, v_cvt_f32(b_u32_h1),  m3);
+
+            v_float32 dg_f32_l0 = v_fma( m5, v_cvt_f32(g_u32_l0),  m7);
+            v_float32 dg_f32_l1 = v_fma( m5, v_cvt_f32(g_u32_l1),  m7);
+            v_float32 dg_f32_h0 = v_fma( m5, v_cvt_f32(g_u32_h0),  m7);
+            v_float32 dg_f32_h1 = v_fma( m5, v_cvt_f32(g_u32_h1),  m7);
+
+            v_float32 dr_f32_l0 = v_fma(m10, v_cvt_f32(r_u32_l0), m11);
+            v_float32 dr_f32_l1 = v_fma(m10, v_cvt_f32(r_u32_l1), m11);
+            v_float32 dr_f32_h0 = v_fma(m10, v_cvt_f32(r_u32_h0), m11);
+            v_float32 dr_f32_h1 = v_fma(m10, v_cvt_f32(r_u32_h1), m11);
+
+            v_store_interleave(dst + x,
+                               v_pack(v_pack(v_round(db_f32_l0), v_round(db_f32_l1)), v_pack(v_round(db_f32_h0), v_round(db_f32_h1))),
+                               v_pack(v_pack(v_round(dg_f32_l0), v_round(dg_f32_l1)), v_pack(v_round(dg_f32_h0), v_round(dg_f32_h1))),
+                               v_pack(v_pack(v_round(dr_f32_l0), v_round(dr_f32_l1)), v_pack(v_round(dr_f32_h0), v_round(dr_f32_h1))));
+        }
+        for (; x < len * 3; x += 3) {
+            int b = src[x], g = src[x + 1], r = src[x + 2];
+            schar db = saturate_cast<schar>(m[ 0] * b + m[ 3]);
+            schar dg = saturate_cast<schar>(m[ 5] * g + m[ 7]);
+            schar dr = saturate_cast<schar>(m[10] * r + m[11]);
+            dst[x] = db; dst[x + 1] = dg; dst[x + 2] = dr;
+        }
+        vx_cleanup();
+        return;
+    }
+#endif
+
     diagtransform_(src, dst, m, len, scn, dcn);
 }
 
 static void
 diagtransform_16u(const ushort* src, ushort* dst, const float* m, int len, int scn, int dcn)
 {
+#if (CV_SIMD || CV_SIMD_SCALABLE)
+    if (scn == 3 && dcn == 3) {
+        int x = 0;
+
+        v_float32 m0  = vx_setall_f32(m[ 0]);
+        v_float32 m3  = vx_setall_f32(m[ 3]);
+        v_float32 m5  = vx_setall_f32(m[ 5]);
+        v_float32 m7  = vx_setall_f32(m[ 7]);
+        v_float32 m10 = vx_setall_f32(m[10]);
+        v_float32 m11 = vx_setall_f32(m[11]);
+        for (; x <= (len - VTraits<v_uint16>::vlanes()) * 3; x += VTraits<v_uint16>::vlanes() * 3) {
+            v_uint16 b, g, r;
+            v_load_deinterleave(src + x, b, g, r);
+            v_uint32 b_u32_l, g_u32_l, r_u32_l;
+            v_uint32 b_u32_h, g_u32_h, r_u32_h;
+            v_expand(b, b_u32_l, b_u32_h);
+            v_expand(g, g_u32_l, g_u32_h);
+            v_expand(r, r_u32_l, r_u32_h);
+
+            v_float32 db_f32_l = v_fma( m0, v_cvt_f32(v_reinterpret_as_s32(b_u32_l)),  m3);
+            v_float32 db_f32_h = v_fma( m0, v_cvt_f32(v_reinterpret_as_s32(b_u32_h)),  m3);
+
+            v_float32 dg_f32_l = v_fma( m5, v_cvt_f32(v_reinterpret_as_s32(g_u32_l)),  m7);
+            v_float32 dg_f32_h = v_fma( m5, v_cvt_f32(v_reinterpret_as_s32(g_u32_h)),  m7);
+
+            v_float32 dr_f32_l = v_fma(m10, v_cvt_f32(v_reinterpret_as_s32(r_u32_l)), m11);
+            v_float32 dr_f32_h = v_fma(m10, v_cvt_f32(v_reinterpret_as_s32(r_u32_h)), m11);
+
+            v_store_interleave(dst + x,
+                               v_pack_u(v_round(db_f32_l), v_round(db_f32_h)),
+                               v_pack_u(v_round(dg_f32_l), v_round(dg_f32_h)),
+                               v_pack_u(v_round(dr_f32_l), v_round(dr_f32_h)));
+        }
+        for (; x < len * 3; x += 3) {
+            int b = src[x], g = src[x + 1], r = src[x + 2];
+            ushort db = saturate_cast<ushort>(m[ 0] * b + m[ 3]);
+            ushort dg = saturate_cast<ushort>(m[ 5] * g + m[ 7]);
+            ushort dr = saturate_cast<ushort>(m[10] * r + m[11]);
+            dst[x] = db; dst[x + 1] = dg; dst[x + 2] = dr;
+        }
+        vx_cleanup();
+        return;
+    }
+#endif
+
     diagtransform_(src, dst, m, len, scn, dcn);
 }
 
 static void
 diagtransform_16s(const short* src, short* dst, const float* m, int len, int scn, int dcn)
 {
+#if (CV_SIMD || CV_SIMD_SCALABLE)
+    if (scn == 3 && dcn == 3) {
+        int x = 0;
+
+        v_float32 m0  = vx_setall_f32(m[ 0]);
+        v_float32 m3  = vx_setall_f32(m[ 3]);
+        v_float32 m5  = vx_setall_f32(m[ 5]);
+        v_float32 m7  = vx_setall_f32(m[ 7]);
+        v_float32 m10 = vx_setall_f32(m[10]);
+        v_float32 m11 = vx_setall_f32(m[11]);
+        for (; x <= (len - VTraits<v_int16>::vlanes()) * 3; x += VTraits<v_int16>::vlanes() * 3) {
+            v_int16 b, g, r;
+            v_load_deinterleave(src + x, b, g, r);
+            v_int32 b_u32_l, g_u32_l, r_u32_l;
+            v_int32 b_u32_h, g_u32_h, r_u32_h;
+            v_expand(b, b_u32_l, b_u32_h);
+            v_expand(g, g_u32_l, g_u32_h);
+            v_expand(r, r_u32_l, r_u32_h);
+
+            v_float32 db_f32_l = v_fma( m0, v_cvt_f32(b_u32_l),  m3);
+            v_float32 db_f32_h = v_fma( m0, v_cvt_f32(b_u32_h),  m3);
+
+            v_float32 dg_f32_l = v_fma( m5, v_cvt_f32(g_u32_l),  m7);
+            v_float32 dg_f32_h = v_fma( m5, v_cvt_f32(g_u32_h),  m7);
+
+            v_float32 dr_f32_l = v_fma(m10, v_cvt_f32(r_u32_l), m11);
+            v_float32 dr_f32_h = v_fma(m10, v_cvt_f32(r_u32_h), m11);
+
+            v_store_interleave(dst + x,
+                               v_pack(v_round(db_f32_l), v_round(db_f32_h)),
+                               v_pack(v_round(dg_f32_l), v_round(dg_f32_h)),
+                               v_pack(v_round(dr_f32_l), v_round(dr_f32_h)));
+        }
+        for (; x < len * 3; x += 3) {
+            int b = src[x], g = src[x + 1], r = src[x + 2];
+            short db = saturate_cast<short>(m[ 0] * b + m[ 3]);
+            short dg = saturate_cast<short>(m[ 5] * g + m[ 7]);
+            short dr = saturate_cast<short>(m[10] * r + m[11]);
+            dst[x] = db; dst[x + 1] = dg; dst[x + 2] = dr;
+        }
+        vx_cleanup();
+        return;
+    }
+#endif
+
     diagtransform_(src, dst, m, len, scn, dcn);
 }
 
 static void
 diagtransform_32s(const int* src, int* dst, const double* m, int len, int scn, int dcn)
 {
+#if (CV_SIMD_64F || CV_SIMD_SCALABLE_64F)
+    if (scn == 3 && dcn == 3) {
+        int x = 0;
+
+        v_float64 m0  = vx_setall_f64(m[ 0]);
+        v_float64 m3  = vx_setall_f64(m[ 3]);
+        v_float64 m5  = vx_setall_f64(m[ 5]);
+        v_float64 m7  = vx_setall_f64(m[ 7]);
+        v_float64 m10 = vx_setall_f64(m[10]);
+        v_float64 m11 = vx_setall_f64(m[11]);
+        for (; x <= (len - VTraits<v_float32>::vlanes()) * 3; x += VTraits<v_float32>::vlanes() * 3) {
+            v_int32 b, g, r;
+            v_load_deinterleave(src + x, b, g, r);
+            v_float64 bh = v_cvt_f64_high(b), bl = v_cvt_f64(b);
+            v_float64 gh = v_cvt_f64_high(g), gl = v_cvt_f64(g);
+            v_float64 rh = v_cvt_f64_high(r), rl = v_cvt_f64(r);
+
+            v_int32 db = v_round(v_fma( m0, bl,  m3),
+                                 v_fma( m0, bh,  m3));
+            v_int32 dg = v_round(v_fma( m5, gl,  m7),
+                                 v_fma( m5, gh,  m7));
+            v_int32 dr = v_round(v_fma(m10, rl, m11),
+                                 v_fma(m10, rh, m11));
+
+            v_store_interleave(dst + x, db, dg, dr);
+        }
+        for (; x < len * 3; x += 3) {
+            int b = src[x], g = src[x + 1], r = src[x + 2];
+            int db = saturate_cast<int>(m[ 0] * b + m[ 3]);
+            int dg = saturate_cast<int>(m[ 5] * g + m[ 7]);
+            int dr = saturate_cast<int>(m[10] * r + m[11]);
+            dst[x] = db; dst[x + 1] = dg; dst[x + 2] = dr;
+        }
+        vx_cleanup();
+        return;
+    }
+#endif
+
     diagtransform_(src, dst, m, len, scn, dcn);
 }
 
 static void
 diagtransform_32f(const float* src, float* dst, const float* m, int len, int scn, int dcn)
 {
+#if (CV_SIMD || CV_SIMD_SCALABLE)
+    if (scn == 3 && dcn == 3) {
+        int x = 0;
+
+        v_float32 m0  = vx_setall_f32(m[ 0]);
+        v_float32 m3  = vx_setall_f32(m[ 3]);
+        v_float32 m5  = vx_setall_f32(m[ 5]);
+        v_float32 m7  = vx_setall_f32(m[ 7]);
+        v_float32 m10 = vx_setall_f32(m[10]);
+        v_float32 m11 = vx_setall_f32(m[11]);
+        for (; x <= (len - VTraits<v_float32>::vlanes()) * 3; x += VTraits<v_float32>::vlanes() * 3) {
+            v_float32 b, g, r;
+            v_load_deinterleave(src + x, b, g, r);
+
+            v_float32 db = v_fma( m0, b,  m3);
+            v_float32 dg = v_fma( m5, g,  m7);
+            v_float32 dr = v_fma(m10, r, m11);
+
+            v_store_interleave(dst + x, db, dg, dr);
+        }
+        for (; x < len * 3; x += 3) {
+            float b = src[x], g = src[x + 1], r = src[x + 2];
+            float db = saturate_cast<float>(m[ 0] * b + m[ 3]);
+            float dg = saturate_cast<float>(m[ 5] * g + m[ 7]);
+            float dr = saturate_cast<float>(m[10] * r + m[11]);
+            dst[x] = db; dst[x + 1] = dg; dst[x + 2] = dr;
+        }
+        vx_cleanup();
+        return;
+    }
+#endif
+
     diagtransform_(src, dst, m, len, scn, dcn);
 }
 
 static void
 diagtransform_64f(const double* src, double* dst, const double* m, int len, int scn, int dcn)
 {
+#if (CV_SIMD_64F || CV_SIMD_SCALABLE_64F)
+    if (scn == 3 && dcn == 3) {
+        int x = 0;
+
+        v_float64 m0  = vx_setall_f64(m[ 0]);
+        v_float64 m3  = vx_setall_f64(m[ 3]);
+        v_float64 m5  = vx_setall_f64(m[ 5]);
+        v_float64 m7  = vx_setall_f64(m[ 7]);
+        v_float64 m10 = vx_setall_f64(m[10]);
+        v_float64 m11 = vx_setall_f64(m[11]);
+        for (; x <= (len - VTraits<v_float64>::vlanes()) * 3; x += VTraits<v_float64>::vlanes() * 3) {
+            v_float64 b, g, r;
+            v_load_deinterleave(src + x, b, g, r);
+
+            v_float64 db = v_fma( m0, b,  m3);
+            v_float64 dg = v_fma( m5, g,  m7);
+            v_float64 dr = v_fma(m10, r, m11);
+
+            v_store_interleave(dst + x, db, dg, dr);
+        }
+        for (; x < len * 3; x += 3) {
+            double b = src[x], g = src[x + 1], r = src[x + 2];
+            double db = saturate_cast<double>(m[ 0] * b + m[ 3]);
+            double dg = saturate_cast<double>(m[ 5] * g + m[ 7]);
+            double dr = saturate_cast<double>(m[10] * r + m[11]);
+            dst[x] = db; dst[x + 1] = dg; dst[x + 2] = dr;
+        }
+        vx_cleanup();
+        return;
+    }
+#endif
+
     diagtransform_(src, dst, m, len, scn, dcn);
 }
 
