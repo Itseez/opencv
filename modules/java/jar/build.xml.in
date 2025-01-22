@@ -8,15 +8,11 @@
     </tstamp>
 
   <target name="jar">
-    <!-- This is to make a jar with a source attachment, for e.g. easy -->
-    <!-- navigation in Eclipse. See this question: -->
-    <!-- http://stackoverflow.com/questions/3584968/ant-how-to-compile-jar-that-includes-source-attachment -->
     <javac sourcepath="" srcdir="java" destdir="build/classes" debug="on" includeantruntime="false" @OPENCV_ANT_JAVAC_EXTRA_ATTRS@ >
       <include name="**/*.java"/>
       <compilerarg line="-encoding utf-8"/>
     </javac>
     <jar destfile="@OPENCV_JAR_FILE@">
-      <fileset dir="java"/>
       <fileset dir="build/classes"/>
       <manifest>
         <attribute name="Specification-Title" value="OpenCV"/>
@@ -25,6 +21,9 @@
         <attribute name="Implementation-Version" value="@OPENCV_VCSVERSION@"/>
         <attribute name="Implementation-Date" value="${timestamp}"/>
       </manifest>
+    </jar>
+    <jar destfile="@OPENCV_SRC_JAR_FILE@">
+      <fileset dir="java"/>
     </jar>
   </target>
 

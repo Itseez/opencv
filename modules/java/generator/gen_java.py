@@ -358,6 +358,7 @@ class ClassInfo(GeneralInfo):
                             module = m,
                             name = self.name,
                             jname = self.jname,
+                            jcleaner = "long nativeObjCopy = nativeObj;\n      org.opencv.core.Mat.cleaner.register(this, () -> delete(nativeObjCopy));",
                             imports = "\n".join(self.getAllImports(M)),
                             docs = self.docstring,
                             annotation = "\n" + "\n".join(self.annotation) if self.annotation else "",
@@ -686,7 +687,7 @@ class JavaWrapperGenerator(object):
             msg = "// Return type '%s' is not supported, skipping the function\n\n" % fi.ctype
             self.skipped_func_list.append(c_decl + "\n" + msg)
             j_code.write( " "*4 + msg )
-            logging.info("SKIP:" + c_decl.strip() + "\t due to RET type " + fi.ctype)
+            logging.warning("SKIP:" + c_decl.strip() + "\t due to RET type " + fi.ctype)
             return
         for a in fi.args:
             if a.ctype not in type_dict:
@@ -698,7 +699,7 @@ class JavaWrapperGenerator(object):
                 msg = "// Unknown type '%s' (%s), skipping the function\n\n" % (a.ctype, a.out or "I")
                 self.skipped_func_list.append(c_decl + "\n" + msg)
                 j_code.write( " "*4 + msg )
-                logging.info("SKIP:" + c_decl.strip() + "\t due to ARG type " + a.ctype + "/" + (a.out or "I"))
+                logging.warning("SKIP:" + c_decl.strip() + "\t due to ARG type " + a.ctype + "/" + (a.out or "I"))
                 return
 
         self.ported_func_list.append(c_decl)
@@ -913,6 +914,7 @@ class JavaWrapperGenerator(object):
                     tail = ")"
                 else:
                     ret_val = "nativeObj = "
+                    tail = ";\n        long nativeObjCopy = nativeObj;\n        org.opencv.core.Mat.cleaner.register(this, () -> delete(nativeObjCopy))"
                 ret = ""
             elif self.isWrapped(ret_type): # wrapped class
                 constructor = self.getClass(ret_type).jname + "("
@@ -1174,18 +1176,9 @@ JNIEXPORT $rtype JNICALL Java_org_opencv_${module}_${clazz}_$fname
                 ci.cpp_code.write("\n".join(fn["cpp_code"]))
 
         if ci.name != self.Module or ci.base:
-            # finalize()
-            ci.j_code.write(
-"""
-    @Override
-    protected void finalize() throws Throwable {
-        delete(nativeObj);
-    }
-""" )
-
             ci.jn_code.write(
 """
-    // native support for java finalize()
+    // native support for deleting native object
     private static native void delete(long nativeObj);
 """ )
 
@@ -1193,7 +1186,7 @@ JNIEXPORT $rtype JNICALL Java_org_opencv_${module}_${clazz}_$fname
             ci.cpp_code.write(
 """
 //
-//  native support for java finalize()
+//  native support for deleting native object
 //  static void %(cls)s::delete( __int64 self )
 //
 JNIEXPORT void JNICALL Java_org_opencv_%(module)s_%(j_cls)s_delete(JNIEnv*, jclass, jlong);

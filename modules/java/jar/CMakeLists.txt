@@ -12,6 +12,7 @@ set(JAR_NAME_WE opencv-${OPENCV_JAVA_LIB_NAME_SUFFIX})
 set(JAR_NAME ${JAR_NAME_WE}.jar)
 set(OPENCV_JAR_DIR "${OpenCV_BINARY_DIR}/bin/" CACHE INTERNAL "")
 set(OPENCV_JAR_FILE "${OPENCV_JAR_DIR}${JAR_NAME}" CACHE INTERNAL "")
+set(OPENCV_SRC_JAR_FILE "${OpenCV_BINARY_DIR}/bin/opencv-${OPENCV_JAVA_LIB_NAME_SUFFIX}-sources.jar" CACHE INTERNAL "")
 
 ocv_copyfiles_append_dir(JAVA_SRC_COPY "${OPENCV_JAVA_BINDINGS_DIR}/gen/java" "${java_src_dir}")
 

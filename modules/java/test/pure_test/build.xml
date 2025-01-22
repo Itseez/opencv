@@ -25,7 +25,7 @@
   <target name="compile">
     <mkdir dir="build/classes"/>
 
-    <javac sourcepath="" srcdir="src" destdir="build/classes" debug="on" includeantruntime="false" >
+    <javac sourcepath="" srcdir="src" destdir="build/classes" debug="on" includeantruntime="false">
       <include name="**/*.java"/>
       <classpath refid="master-classpath"/>
     </javac>

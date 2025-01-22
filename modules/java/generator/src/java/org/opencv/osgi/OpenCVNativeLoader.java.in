@@ -12,7 +12,11 @@ import java.util.logging.Logger;
 public class OpenCVNativeLoader implements OpenCVInterface {
 
     public void init() {
-        System.loadLibrary("opencv_java@OPENCV_JAVA_LIB_NAME_SUFFIX@");
-        Logger.getLogger("org.opencv.osgi").log(Level.INFO, "Successfully loaded OpenCV native library.");
+        try {
+            System.loadLibrary("opencv_java@OPENCV_JAVA_LIB_NAME_SUFFIX@");
+            Logger.getLogger("org.opencv.osgi").log(Level.INFO, "Successfully loaded OpenCV native library.");
+        } catch (Throwable e) {
+            Logger.getLogger("org.opencv.osgi").log(Level.SEVERE, "Cannot load OpenCV native library: " + e.getMessage());
+        }
     }
 }

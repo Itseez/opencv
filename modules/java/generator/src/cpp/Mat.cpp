@@ -2117,7 +2117,7 @@ JNIEXPORT jlong JNICALL Java_org_opencv_core_Mat_n_1zeros__I_3II
 
 
 //
-//  native support for java finalize()
+//  native support for deleting native object
 //  static void Mat::n_delete( __int64 self )
 //
 
