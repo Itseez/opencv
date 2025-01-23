@@ -1303,6 +1303,42 @@ TEST(Core_Mat, reshape_ndims_4)
     }
 }
 
+TEST(Core_Mat, reinterpret_Mat_8UC3_8SC3)
+{
+    cv::Mat A(8, 16, CV_8UC3, cv::Scalar(1, 2, 3));
+    cv::Mat B = A.reinterpret(CV_8SC3);
+
+    EXPECT_EQ(A.data, B.data);
+    EXPECT_EQ(B.type(), CV_8SC3);
+}
+
+TEST(Core_Mat, reinterpret_Mat_8UC4_32FC1)
+{
+    cv::Mat A(8, 16, CV_8UC4, cv::Scalar(1, 2, 3, 4));
+    cv::Mat B = A.reinterpret(CV_32FC1);
+
+    EXPECT_EQ(A.data, B.data);
+    EXPECT_EQ(B.type(), CV_32FC1);
+}
+
+TEST(Core_Mat, reinterpret_OutputArray_8UC3_8SC3) {
+    cv::Mat A(8, 16, CV_8UC3, cv::Scalar(1, 2, 3));
+    cv::OutputArray C(A);
+    cv::Mat B = C.reinterpret(CV_8SC3);
+
+    EXPECT_EQ(A.data, B.data);
+    EXPECT_EQ(B.type(), CV_8SC3);
+}
+
+TEST(Core_Mat, reinterpret_OutputArray_8UC4_32FC1) {
+    cv::Mat A(8, 16, CV_8UC4, cv::Scalar(1, 2, 3, 4));
+    cv::OutputArray C(A);
+    cv::Mat B = C.reinterpret(CV_32FC1);
+
+    EXPECT_EQ(A.data, B.data);
+    EXPECT_EQ(B.type(), CV_32FC1);
+}
+
 TEST(Core_Mat, push_back)
 {
     Mat a = (Mat_<float>(1,2) << 3.4884074f, 1.4159607f);

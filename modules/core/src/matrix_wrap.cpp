@@ -1656,6 +1656,12 @@ void _OutputArray::create(int d, const int* sizes, int mtype, int i,
     CV_Error(Error::StsNotImplemented, "Unknown/unsupported array type");
 }
 
+Mat _OutputArray::reinterpret(int mtype) const
+{
+    mtype = CV_MAT_TYPE(mtype);
+    return getMat().reinterpret(mtype);
+}
+
 void _OutputArray::createSameSize(const _InputArray& arr, int mtype) const
 {
     int arrsz[CV_MAX_DIM], d = arr.sizend(arrsz);
