@@ -573,6 +573,63 @@ ReprojectionErrorAffine::create(const Mat &points) {
     return makePtr<ReprojectionDistanceAffineImpl>(points);
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Computes forward reprojection error for affine 3D transformation.
+class ReprojectionDistanceAffine3DImpl : public ReprojectionErrorAffine3D {
+private:
+    /*
+     * m11 m12 m13 m14
+     * m21 m22 m23 m24
+     * m31 m32 m33 m34
+     * 0   0   0   1
+     */
+    const Mat * points_mat;
+    const float * const points;
+    float m11, m12, m13, m14, m21, m22, m23, m24, m31, m32, m33, m34;
+    std::vector<float> errors;
+public:
+    explicit ReprojectionDistanceAffine3DImpl (const Mat &points_)
+        : points_mat(&points_), points ((float *) points_.data)
+        , m11(0), m12(0), m13(0), m14(0)
+        , m21(0), m22(0), m23(0), m24(0)
+        , m31(0), m32(0), m33(0), m34(0)
+        , errors(points_.rows)
+    {
+        CV_DbgAssert(points);
+    }
+
+    inline void setModelParameters(const Mat& model) override
+    {
+        CV_Assert(!model.empty());
+        CV_CheckTypeEQ(model.depth(), CV_64F, "");
+
+        const auto * const m = (double *) model.data;
+        m11 = (float)m[0]; m12 = (float)m[1]; m13 = (float)m[2];  m14 = (float)m[3];
+        m21 = (float)m[4]; m22 = (float)m[5]; m23 = (float)m[6];  m24 = (float)m[7];
+        m31 = (float)m[8]; m32 = (float)m[9]; m33 = (float)m[10]; m34 = (float)m[11];
+    }
+    inline float getError (int point_idx) const override {
+        const int smpl = 6*point_idx;
+        const float x1=points[smpl], y1=points[smpl+1], z1=points[smpl+2], x2=points[smpl+3], y2=points[smpl+4], z2=points[smpl+5];
+        const float dx2 = x2 - (m11 * x1 + m12 * y1 + m13 * z1 + m14), dy2 = y2 - (m21 * x1 + m22 * y1 + m23 * z1 + m24), dz2 = z2 - (m31 * x1 + m32 * y1 + m33 * z1 + m34);
+        return dx2 * dx2 + dy2 * dy2 + dz2 * dz2;
+    }
+    const std::vector<float> &getErrors (const Mat &model) override {
+        setModelParameters(model);
+        for (int point_idx = 0; point_idx < points_mat->rows; point_idx++) {
+            const int smpl = 6*point_idx;
+            const float x1=points[smpl], y1=points[smpl+1], z1=points[smpl+2], x2=points[smpl+3], y2=points[smpl+4], z2=points[smpl+5];
+            const float dx2 = x2 - (m11 * x1 + m12 * y1 + m13 * z1 + m14), dy2 = y2 - (m21 * x1 + m22 * y1 + m23 * z1 + m24), dz2 = z2 - (m31 * x1 + m32 * y1 + m33 * z1 + m34);
+            errors[point_idx] = dx2 * dx2 + dy2 * dy2 + dz2 * dz2;
+        }
+        return errors;
+    }
+};
+Ptr<ReprojectionErrorAffine3D>
+ReprojectionErrorAffine3D::create(const Mat &points) {
+    return makePtr<ReprojectionDistanceAffine3DImpl>(points);
+}
+
 ////////////////////////////////////// NORMALIZING TRANSFORMATION /////////////////////////
 class NormTransformImpl : public NormTransform {
 private:

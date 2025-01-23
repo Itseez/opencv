@@ -3247,6 +3247,201 @@ CV_EXPORTS_W cv::Mat estimateAffinePartial2D(InputArray from, InputArray to, Out
                                   size_t maxIters = 2000, double confidence = 0.99,
                                   size_t refineIters = 10);
 
+
+/** @brief Computes an optimal limited \f$SE(2)\f$ transformation with 3 degrees of freedom between
+two 2D point sets.
+
+@param from First input 2D point set containing \f$(X,Y)\f$.
+@param to Second input 2D point set containing \f$(x,y)\f$.
+@param inliers Output vector indicating which points are inliers (1-inlier, 0-outlier).
+@param method Robust method used to compute transformation. The following methods are possible:
+-   @ref USAC_DEFAULT – has standard LO-RANSAC.
+-   @ref USAC_PARALLEL – has LO-RANSAC and RANSACs run in parallel.
+-   @ref USAC_ACCURATE – has GC-RANSAC.
+-   @ref USAC_FAST – has LO-RANSAC with smaller number iterations in local optimization step. Uses RANSAC score to maximize number of inliers and terminate earlier.
+-   @ref USAC_PROSAC – has PROSAC sampling. Note, points must be sorted.
+-   @ref USAC_MAGSAC – has MAGSAC++.
+USAC_DEFAULT is the default method.
+The legacy methods of @ref RANSAC and @ref LMEDS are not supported. Use @sa estimateAffinePartial2D for them.
+@param ransacReprojThreshold Maximum reprojection error in the RANSAC algorithm to consider
+a point as an inlier. Applies only to RANSAC.
+@param maxIters The maximum number of robust method iterations.
+@param confidence Confidence level, between 0 and 1, for the estimated transformation. Anything
+between 0.95 and 0.99 is usually good enough. Values too close to 1 can slow down the estimation
+significantly. Values lower than 0.8-0.9 can result in an incorrectly estimated transformation.
+@param refineIters Maximum number of iterations of refining algorithm (Levenberg-Marquardt).
+Passing 0 will disable refining, so the output matrix will be output of robust method.
+
+@return Output \f$SE(2)\f$ transformation (3 degrees of freedom) matrix \f$2 \times 3\f$ or
+empty matrix if transformation could not be estimated.
+
+The function estimates an optimal \f$SE(2)\f$ transformation with 3 degrees of freedom limited to
+combinations of translation and rotation.
+@sa estimateAffine2D
+*/
+CV_EXPORTS_W cv::Mat estimateSE2(InputArray from, InputArray to, OutputArray inliers = noArray(),
+                                  int method = USAC_DEFAULT, double ransacReprojThreshold = 3,
+                                  size_t maxIters = 2000, double confidence = 0.99,
+                                  size_t refineIters = 10);
+
+CV_EXPORTS_W cv::Mat estimateSE2(InputArray pts1, InputArray pts2, OutputArray inliers,
+                     const UsacParams &params);
+
+
+/** @brief Computes an optimal limited \f$Sim(2)\f$ transformation with 4 degrees of freedom between
+two 2D point sets.
+
+@param from First input 2D point set containing \f$(X,Y)\f$.
+@param to Second input 2D point set containing \f$(x,y)\f$.
+@param inliers Output vector indicating which points are inliers (1-inlier, 0-outlier).
+@param method Robust method used to compute transformation. The following methods are possible:
+-   @ref USAC_DEFAULT – has standard LO-RANSAC.
+-   @ref USAC_PARALLEL – has LO-RANSAC and RANSACs run in parallel.
+-   @ref USAC_ACCURATE – has GC-RANSAC.
+-   @ref USAC_FAST – has LO-RANSAC with smaller number iterations in local optimization step. Uses RANSAC score to maximize number of inliers and terminate earlier.
+-   @ref USAC_PROSAC – has PROSAC sampling. Note, points must be sorted.
+-   @ref USAC_MAGSAC – has MAGSAC++.
+USAC_DEFAULT is the default method.
+The legacy methods of @ref RANSAC and @ref LMEDS are not supported. Use @sa estimateAffinePartial2D for them.
+@param ransacReprojThreshold Maximum reprojection error in the RANSAC algorithm to consider
+a point as an inlier. Applies only to RANSAC.
+@param maxIters The maximum number of robust method iterations.
+@param confidence Confidence level, between 0 and 1, for the estimated transformation. Anything
+between 0.95 and 0.99 is usually good enough. Values too close to 1 can slow down the estimation
+significantly. Values lower than 0.8-0.9 can result in an incorrectly estimated transformation.
+@param refineIters Maximum number of iterations of refining algorithm (Levenberg-Marquardt).
+Passing 0 will disable refining, so the output matrix will be output of robust method.
+
+@return Output \f$Sim(2)\f$ transformation (4 degrees of freedom) matrix \f$2 \times 3\f$ or
+empty matrix if transformation could not be estimated.
+
+The function estimates an optimal \f$Sim(2)\f$ transformation with 4 degrees of freedom limited to
+combinations of translation, rotation, and uniform scaling.
+@sa estimateAffine2D
+*/
+CV_EXPORTS_W cv::Mat estimateSIM2(InputArray from, InputArray to, OutputArray inliers = noArray(),
+                                  int method = USAC_DEFAULT, double ransacReprojThreshold = 3,
+                                  size_t maxIters = 2000, double confidence = 0.99,
+                                  size_t refineIters = 10);
+
+CV_EXPORTS_W cv::Mat estimateSIM2(InputArray pts1, InputArray pts2, OutputArray inliers,
+                     const UsacParams &params);
+
+/** @brief Computes an optimal limited \f$SO(3)\f$ transformation with 3 degrees of freedom between
+@return Output \f$SO(3)\f$ transformation (3 degrees of freedom) matrix \f$3 \times 4\f$ or
+empty matrix if transformation could not be estimated.
+
+@param from First input 3D point set containing \f$(X,Y,Z)\f$.
+@param to Second input 3D point set containing \f$(x,y,z)\f$.
+@param inliers Output vector indicating which points are inliers (1-inlier, 0-outlier).
+@param method Robust method used to compute transformation. The following methods are possible:
+-   @ref USAC_DEFAULT – has standard LO-RANSAC.
+-   @ref USAC_PARALLEL – has LO-RANSAC and RANSACs run in parallel.
+-   @ref USAC_ACCURATE – has GC-RANSAC.
+-   @ref USAC_FAST – has LO-RANSAC with smaller number iterations in local optimization step. Uses RANSAC score to maximize number of inliers and terminate earlier.
+-   @ref USAC_PROSAC – has PROSAC sampling. Note, points must be sorted.
+-   @ref USAC_MAGSAC – has MAGSAC++.
+USAC_DEFAULT is the default method.
+The legacy methods of @ref RANSAC and @ref LMEDS are not supported. Use @sa estimateAffine3D for them.
+@param ransacReprojThreshold Maximum reprojection error in the RANSAC algorithm to consider
+a point as an inlier. Applies only to RANSAC.
+@param maxIters The maximum number of robust method iterations.
+@param confidence Confidence level, between 0 and 1, for the estimated transformation. Anything
+between 0.95 and 0.99 is usually good enough. Values too close to 1 can slow down the estimation
+significantly. Values lower than 0.8-0.9 can result in an incorrectly estimated transformation.
+@param refineIters Maximum number of iterations of refining algorithm (Levenberg-Marquardt).
+Passing 0 will disable refining, so the output matrix will be output of robust method.
+
+@return Output \f$SO(3)\f$ transformation (3 degrees of freedom) matrix \f$3 \times 4\f$ or
+empty matrix if transformation could not be estimated.
+The function estimates an optimal \f$SO(3)\f$ transformation with 3 degrees of freedom limited to
+combinations of translation and rotation.
+@sa estimateAffine3D
+*/
+CV_EXPORTS_W cv::Mat estimateSO3(InputArray from, InputArray to, OutputArray inliers = noArray(),
+                                  int method = USAC_DEFAULT, double ransacReprojThreshold = 3,
+                                  size_t maxIters = 2000, double confidence = 0.99,
+                                  size_t refineIters = 10);
+
+CV_EXPORTS_W cv::Mat estimateSO3(InputArray pts1, InputArray pts2, OutputArray inliers,
+                     const UsacParams &params);
+
+/** @brief Computes an optimal limited \f$SE(3)\f$ transformation with 6 degrees of freedom between
+two 3D point sets.
+
+@param from First input 3D point set containing \f$(X,Y,Z)\f$.
+@param to Second input 3D point set containing \f$(x,y,z)\f$.
+@param inliers Output vector indicating which points are inliers (1-inlier, 0-outlier).
+@param method Robust method used to compute transformation. The following methods are possible:
+-   @ref USAC_DEFAULT – has standard LO-RANSAC.
+-   @ref USAC_PARALLEL – has LO-RANSAC and RANSACs run in parallel.
+-   @ref USAC_ACCURATE – has GC-RANSAC.
+-   @ref USAC_FAST – has LO-RANSAC with smaller number iterations in local optimization step. Uses RANSAC score to maximize number of inliers and terminate earlier.
+-   @ref USAC_PROSAC – has PROSAC sampling. Note, points must be sorted.
+-   @ref USAC_MAGSAC – has MAGSAC++.
+USAC_DEFAULT is the default method.
+The legacy methods of @ref RANSAC and @ref LMEDS are not supported. Use @sa estimateAffine3D for them.
+@param ransacReprojThreshold Maximum reprojection error in the RANSAC algorithm to consider
+a point as an inlier. Applies only to RANSAC.
+@param maxIters The maximum number of robust method iterations.
+@param confidence Confidence level, between 0 and 1, for the estimated transformation. Anything
+between 0.95 and 0.99 is usually good enough. Values too close to 1 can slow down the estimation
+significantly. Values lower than 0.8-0.9 can result in an incorrectly estimated transformation.
+@param refineIters Maximum number of iterations of refining algorithm (Levenberg-Marquardt).
+Passing 0 will disable refining, so the output matrix will be output of robust method.
+
+@return Output \f$SE(3)\f$ transformation (6 degrees of freedom) matrix \f$3 \times 4\f$ or
+empty matrix if transformation could not be estimated.
+The function estimates an optimal \f$SE(3)\f$ transformation with 6 degrees of freedom limited to
+combinations of translation and rotation.
+@sa estimateAffine3D
+*/
+CV_EXPORTS_W cv::Mat estimateSE3(InputArray from, InputArray to, OutputArray inliers = noArray(),
+                                  int method = USAC_DEFAULT, double ransacReprojThreshold = 3,
+                                  size_t maxIters = 2000, double confidence = 0.99,
+                                  size_t refineIters = 10);
+
+CV_EXPORTS_W cv::Mat estimateSE3(InputArray pts1, InputArray pts2, OutputArray inliers,
+                     const UsacParams &params);
+
+/** @brief Computes an optimal limited \f$Sim(3)\f$ transformation with 7 degrees of freedom between
+two 3D point sets.
+
+@param from First input 3D point set containing \f$(X,Y,Z)\f$.
+@param to Second input 3D point set containing \f$(x,y,z)\f$.
+@param inliers Output vector indicating which points are inliers (1-inlier, 0-outlier).
+@param method Robust method used to compute transformation. The following methods are possible:
+-   @ref USAC_DEFAULT – has standard LO-RANSAC.
+-   @ref USAC_PARALLEL – has LO-RANSAC and RANSACs run in parallel.
+-   @ref USAC_ACCURATE – has GC-RANSAC.
+-   @ref USAC_FAST – has LO-RANSAC with smaller number iterations in local optimization step. Uses RANSAC score to maximize number of inliers and terminate earlier.
+-   @ref USAC_PROSAC – has PROSAC sampling. Note, points must be sorted.
+-   @ref USAC_MAGSAC – has MAGSAC++.
+USAC_DEFAULT is the default method.
+The legacy methods of @ref RANSAC and @ref LMEDS are not supported. Use @sa estimateAffine3D for them.
+@param ransacReprojThreshold Maximum reprojection error in the RANSAC algorithm to consider
+a point as an inlier. Applies only to RANSAC.
+@param maxIters The maximum number of robust method iterations.
+@param confidence Confidence level, between 0 and 1, for the estimated transformation. Anything
+between 0.95 and 0.99 is usually good enough. Values too close to 1 can slow down the estimation
+significantly. Values lower than 0.8-0.9 can result in an incorrectly estimated transformation.
+@param refineIters Maximum number of iterations of refining algorithm (Levenberg-Marquardt).
+Passing 0 will disable refining, so the output matrix will be output of robust method.
+
+@return Output \f$Sim(3)\f$ transformation (7 degrees of freedom) matrix \f$3 \times 4\f$ or
+empty matrix if transformation could not be estimated.
+
+The function estimates an optimal \f$Sim(3)\f$ transformation with 7 degrees of freedom limited to
+combinations of translation, rotation, and uniform scaling.
+@sa estimateAffine3D
+*/CV_EXPORTS_W cv::Mat estimateSIM3(InputArray from, InputArray to, OutputArray inliers = noArray(),
+                                  int method = USAC_DEFAULT, double ransacReprojThreshold = 3,
+                                  size_t maxIters = 2000, double confidence = 0.99,
+                                  size_t refineIters = 10);
+
+CV_EXPORTS_W cv::Mat estimateSIM3(InputArray pts1, InputArray pts2, OutputArray inliers,
+                     const UsacParams &params);
+
 /** @example samples/cpp/tutorial_code/features2D/Homography/decompose_homography.cpp
 An example program with homography decomposition.
 

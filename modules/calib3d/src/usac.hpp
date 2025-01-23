@@ -6,7 +6,7 @@
 #define OPENCV_USAC_USAC_HPP
 
 namespace cv { namespace usac {
-enum EstimationMethod { HOMOGRAPHY=0, FUNDAMENTAL=1, FUNDAMENTAL8=2, ESSENTIAL=3, AFFINE=4, P3P=5, P6P=6};
+enum EstimationMethod { HOMOGRAPHY=0, FUNDAMENTAL=1, FUNDAMENTAL8=2, ESSENTIAL=3, AFFINE=4, P3P=5, P6P=6, SE2=7, SIM2=8, SO3=9, SE3=10, SIM3=11};
 enum VerificationMethod { NULL_VERIFIER=0, SPRT_VERIFIER=1, ASPRT=2 };
 enum ErrorMetric {DIST_TO_LINE=0, SAMPSON_ERR=1, SGD_ERR=2, SYMM_REPR_ERR=3, FORW_REPR_ERR=4, RERPOJ=5};
 enum MethodSolver { GEM_SOLVER=0, SVD_SOLVER=1 };
@@ -56,6 +56,12 @@ public:
 class ReprojectionErrorAffine : public Error {
 public:
     static Ptr<ReprojectionErrorAffine> create(const Mat &points);
+};
+
+// Reprojection Error for Affine 3D matrix
+class ReprojectionErrorAffine3D : public Error {
+public:
+    static Ptr<ReprojectionErrorAffine3D> create(const Mat &points);
 };
 
 class TrifocalTensorReprError : public Error {
@@ -133,6 +139,32 @@ public:
     static Ptr<AffineMinimalSolver> create(const Mat &points_);
 };
 
+//-------------------------- SE/SIM -----------------------
+class SE2MinimalSolver : public MinimalSolver {
+public:
+    static Ptr<SE2MinimalSolver> create(const Mat &points_);
+};
+// class PartialNdMinimalSolver : public MinimalSolver {
+// public:
+//     static Ptr<PartialNdMinimalSolver> create(const Mat &points_, const int Nd=2, const bool is_similarity=false);
+// };
+class SIM2MinimalSolver : public MinimalSolver {
+public:
+    static Ptr<SIM2MinimalSolver> create(const Mat &points_);
+};
+class SO3MinimalSolver : public MinimalSolver {
+public:
+    static Ptr<SO3MinimalSolver> create(const Mat &points_);
+};
+class SE3MinimalSolver : public MinimalSolver {
+public:
+    static Ptr<SE3MinimalSolver> create(const Mat &points_);
+};
+class SIM3MinimalSolver : public MinimalSolver {
+public:
+    static Ptr<SIM3MinimalSolver> create(const Mat &points_);
+};
+
 class TrifocalTensorMinimalSolver : public MinimalSolver {
 public:
     static Ptr<TrifocalTensorMinimalSolver> create(const Mat &points_);
@@ -204,6 +236,28 @@ public:
 class LarssonOptimizer : public NonMinimalSolver {
 public:
     static Ptr<LarssonOptimizer> create(const Mat &calib_points_, const Matx33d &K1_, const Matx33d &K2_, int max_iters_, bool is_fundamental_);
+};
+
+//-------------------------- SE/SIM -----------------------
+class SE2NonMinimalSolver : public NonMinimalSolver {
+public:
+    static Ptr<SE2NonMinimalSolver> create(const Mat &points_);
+};
+class SIM2NonMinimalSolver : public NonMinimalSolver {
+public:
+    static Ptr<SIM2NonMinimalSolver> create(const Mat &points_);
+};
+class SO3NonMinimalSolver : public NonMinimalSolver {
+public:
+    static Ptr<SO3NonMinimalSolver> create(const Mat &points_);
+};
+class SE3NonMinimalSolver : public NonMinimalSolver {
+public:
+    static Ptr<SE3NonMinimalSolver> create(const Mat &points_);
+};
+class SIM3NonMinimalSolver : public NonMinimalSolver {
+public:
+    static Ptr<SIM3NonMinimalSolver> create(const Mat &points_);
 };
 
 ////////////////////////////////////////// SCORE ///////////////////////////////////////////
@@ -869,6 +923,7 @@ public:
     virtual bool isHomography () const = 0;
     virtual bool isEssential () const = 0;
     virtual bool isPnP () const = 0;
+    virtual bool isPtsetReg () const = 0;
 
     // getters
     virtual int getSampleSize () const = 0;
@@ -964,6 +1019,26 @@ Mat findEssentialMat( InputArray points1, InputArray points2,
                       int maxIters);
 
 Mat estimateAffine2D(InputArray from, InputArray to, OutputArray inliers,
+     int method, double ransacReprojThreshold, int maxIters,
+     double confidence, int refineIters);
+
+Mat estimateSE2(InputArray from, InputArray to, OutputArray inliers,
+     int method, double ransacReprojThreshold, int maxIters,
+     double confidence, int refineIters);
+
+Mat estimateSIM2(InputArray from, InputArray to, OutputArray inliers,
+     int method, double ransacReprojThreshold, int maxIters,
+     double confidence, int refineIters);
+
+Mat estimateSO3(InputArray from, InputArray to, OutputArray inliers,
+     int method, double ransacReprojThreshold, int maxIters,
+     double confidence, int refineIters);
+
+Mat estimateSE3(InputArray from, InputArray to, OutputArray inliers,
+     int method, double ransacReprojThreshold, int maxIters,
+     double confidence, int refineIters);
+
+Mat estimateSIM3(InputArray from, InputArray to, OutputArray inliers,
      int method, double ransacReprojThreshold, int maxIters,
      double confidence, int refineIters);
 
