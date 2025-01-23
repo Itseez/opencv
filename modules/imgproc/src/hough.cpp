@@ -228,7 +228,7 @@ HoughLinesStandard( InputArray src, OutputArray lines, int type,
         int idx = _sort_buf[i];
         int n = cvFloor(idx*scale) - 1;
         int r = idx - (n+1)*(numrho+2) - 1;
-        line.rho = (r - (numrho - 1)*0.5f) * rho;
+        line.rho = (r - (numrho - 1)/2) * rho;
         line.angle = static_cast<float>(min_theta) + n * theta;
         if (type == CV_32FC2)
         {
