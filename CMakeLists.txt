@@ -108,18 +108,40 @@ endif()
 ocv_cmake_hook(CMAKE_INIT)
 
 # must go before the project()/enable_language() commands
-ocv_update(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "Configs" FORCE)
-if(NOT DEFINED CMAKE_BUILD_TYPE
-    AND NOT OPENCV_SKIP_DEFAULT_BUILD_TYPE
-)
-  message(STATUS "'Release' build type is used by default. Use CMAKE_BUILD_TYPE to specify build type (Release or Debug)")
-  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build")
-endif()
-if(DEFINED CMAKE_BUILD_TYPE)
-  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "${CMAKE_CONFIGURATION_TYPES}")
+if(NOT DEFINED CMAKE_BUILD_TYPE AND NOT OPENCV_SKIP_DEFAULT_BUILD_TYPE)
+  # detects if the generator is a known multi-configuration generator
+  if(CMAKE_GENERATOR MATCHES "Visual Studio|Xcode|Ninja Multi-Config")
+    message(STATUS "Using multi-configuration generator: ${CMAKE_GENERATOR}.")
+    message(STATUS "'Debug' configuration will be used by default. Use the IDE to switch between configurations (Debug, Release, etc.).")
+    # sets the default configurations for multi-configuration generators
+    ocv_update(CMAKE_CONFIGURATION_TYPES "Debug;Release" CACHE STRING "Configs" FORCE)
+
+  elseif(CMAKE_GENERATOR MATCHES "Unix Makefiles|Ninja|Watcom WMake")
+    # for single-configuration generators
+    if(CMAKE_GENERATOR MATCHES "Unix Makefiles")
+      message(STATUS "Unix Makefiles = Generates standard UNIX makefiles.")
+    elseif(CMAKE_GENERATOR MATCHES "Ninja")
+      message(STATUS "Ninja = Generates build.ninja files.")
+    elseif(CMAKE_GENERATOR MATCHES "Watcom WMake")
+      message(STATUS "Watcom WMake = Generates Watcom WMake makefiles.")
+    endif()
+
+    message(STATUS "'Release' build type is used by default for ${CMAKE_GENERATOR}. Use CMAKE_BUILD_TYPE to specify the build type (e.g., Release or Debug).")
+
+    # sets the default build type to Release for single-configuration generators
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build" FORCE)
+
+  else()
+    # catches all unrecognized or unsupported generators
+    message(WARNING "Unknown generator detected: ${CMAKE_GENERATOR}. Please check if this generator supports multi-configuration or single-configuration. No default behavior will be applied.")
+  endif()
 endif()
 
-option(ENABLE_PIC "Generate position independent code (necessary for shared libraries)" TRUE)
+if(DEFINED CMAKE_BUILD_TYPE)
+  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug;Release")
+endif()
+
+option(ENABLE_PIC "Generate position-independent code for shared libraries" TRUE)
 set(CMAKE_POSITION_INDEPENDENT_CODE ${ENABLE_PIC})
 
 ocv_cmake_hook(PRE_CMAKE_BOOTSTRAP)
