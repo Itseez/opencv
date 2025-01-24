@@ -916,6 +916,7 @@ public:
     {
         CV_WRAP Params();
         CV_PROP_RW std::string net;
+        CV_PROP_RW std::vector<uchar> modelBuffer;
         CV_PROP_RW int backend;
         CV_PROP_RW int target;
         CV_PROP_RW Scalar meanvalue;

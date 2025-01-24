@@ -24,6 +24,7 @@ TrackerVit::~TrackerVit()
 TrackerVit::Params::Params()
 {
     net = "vitTracker.onnx";
+    modelBuffer.clear(); // Initialize the buffer to empty
     meanvalue = Scalar{0.485, 0.456, 0.406}; // normalized mean (already divided by 255)
     stdvalue = Scalar{0.229, 0.224, 0.225};  // normalized std (already divided by 255)
 #ifdef HAVE_OPENCV_DNN
@@ -44,7 +45,17 @@ public:
     TrackerVitImpl(const TrackerVit::Params& parameters)
         : params(parameters)
     {
-        net = dnn::readNet(params.net);
+        if (!params.modelBuffer.empty())
+        {
+            // Load the model from memory if buffer is provided
+            net = dnn::readNetFromONNX(params.modelBuffer);
+        }
+        else
+        {
+            // Otherwise, load the model from the file path
+            net = dnn::readNet(params.net);
+        }
+
         CV_Assert(!net.empty());
 
         net.setPreferableBackend(params.backend);
