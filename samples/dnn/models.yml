@@ -441,3 +441,19 @@ dasiamrpn:
     dasiamrpn_kernel_cls_sha1: "e9ccd270ce8059bdf7ed0d1845c03ef4a951ee0f"
   dasiamrpn_kernel_cls_model: "object_tracking_dasiamrpn_kernel_cls1_2021nov.onnx"
   sample: "object_tracker"
+
+################################################################################
+# Inpainting models.
+################################################################################
+
+lama:
+  load_info:
+    url: "https://github.com/gursimarsingh/opencv_zoo/raw/0417e12d24bba41613ae0380bd698cca73a4fb17/models/inpainting_lama/inpainting_lama_2025jan.onnx?download="
+    sha1: "7c6cdb9362bf73de2a80cfcaf17e121e3302f24c"
+  model: "inpainting_lama_2025jan.onnx"
+  mean: [0, 0, 0]
+  scale: 0.00392
+  width: 512
+  height: 512
+  rgb: false
+  sample: "inpainting"
