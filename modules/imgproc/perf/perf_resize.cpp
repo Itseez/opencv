@@ -280,4 +280,23 @@ PERF_TEST_P(MatInfo_Size_Scale_NN, ResizeNNExact,
     SANITY_CHECK_NOTHING();
 }
 
-} // namespace
+PERF_TEST_P(MatInfo_Size_Size, ResizeOnnxLinearAntialias, Combine(
+    Values(CV_8UC1, CV_8UC3, CV_8UC4),
+    Values(sz1440p),
+    Values(szVGA, szqHD, sz720p, sz1080p)
+))
+{
+    int matType = get<0>(GetParam());
+    Size from = get<1>(GetParam());
+    Size to = get<2>(GetParam());
+
+    cv::Mat src(from, matType), dst(to, matType);
+    declare.in(src).out(dst);
+    declare.time(100);
+
+    TEST_CYCLE() resizeOnnx(src, dst, to, Point2d(), INTER_LINEAR | INTER_ANTIALIAS);
+
+    SANITY_CHECK_NOTHING();
+}
+
+}

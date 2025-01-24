@@ -192,6 +192,29 @@ OCL_PERF_TEST_P(ResizeLinearExactFixture, Resize,
     SANITY_CHECK(dst, eps);
 }
 
+typedef tuple<Size, MatType, double> ResizeOnnxParams;
+typedef TestBaseWithParam<ResizeOnnxParams> ResizeOnnxFixture;
+
+OCL_PERF_TEST_P(ResizeOnnxFixture, LinearAntialias,
+    Combine(OCL_TEST_SIZES, OCL_TEST_TYPES_134, Values(0.3, 0.5, 0.6)))
+{
+    const ResizeOnnxParams params = GetParam();
+    const Size srcSize = get<0>(params);
+    const int type = get<1>(params);
+    double scale = get<2>(params);
+    const Size dstSize(cvRound(srcSize.width * scale), cvRound(srcSize.height * scale));
+
+    checkDeviceMaxMemoryAllocSize(srcSize, type);
+    checkDeviceMaxMemoryAllocSize(dstSize, type);
+
+    UMat src(srcSize, type), dst(dstSize, type);
+    declare.in(src, WARMUP_RNG).out(dst);
+
+    OCL_TEST_CYCLE() cv::resizeOnnx(src, dst, dstSize, Point2d(), INTER_LINEAR | INTER_ANTIALIAS);
+
+    SANITY_CHECK_NOTHING();
+}
+
 ///////////// Remap ////////////////////////
 
 typedef tuple<Size, MatType, InterType> RemapParams;

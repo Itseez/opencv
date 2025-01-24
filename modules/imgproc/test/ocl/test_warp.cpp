@@ -160,11 +160,7 @@ PARAM_TEST_CASE(WarpTest_cols4_Base, MatType, Interpolation, bool, bool)
     }
 };
 
-/////warpAffine
-
-typedef WarpTestBase WarpAffine;
-
-/////warpAffine
+//// warpAffine
 
 typedef WarpTestBase WarpAffine;
 
@@ -360,6 +356,90 @@ OCL_TEST(Resize, overflow_21198)
     EXPECT_LE(cv::norm(dst_u, dst, NORM_INF), 1.0f);
 }
 
+PARAM_TEST_CASE(ResizeOnnx, MatType, double, double, int, bool, int)
+{
+    int depth, interpolation;
+    int widthMultiple;
+    double fx, fy;
+    bool useRoi;
+
+    Rect src_loc, dst_loc;
+    Mat src, dst, src_roi, dst_roi;
+    UMat gsrc, gdst, gsrc_roi, gdst_roi;
+
+    virtual void SetUp()
+    {
+        depth = GET_PARAM(0);
+        fx = GET_PARAM(1);
+        fy = GET_PARAM(2);
+        interpolation = GET_PARAM(3);
+        useRoi = GET_PARAM(4);
+        widthMultiple = GET_PARAM(5);
+    }
+
+    void random_submat(int type,
+        Size& size, Rect& roi, Mat& mat, Mat& sub, UMat& gmat, UMat& gsub)
+    {
+        int border = useRoi ? 65 : 0;
+        roi.x = randomInt(0, border);
+        roi.y = randomInt(0, border);
+        roi.width = size.width;
+        roi.height = size.height;
+        size.width += roi.x + randomInt(0, border);
+        size.height += roi.y + randomInt(0, border);
+        mat = randomMat(size, type, -127, 127);
+        mat.copyTo(gmat);
+        sub = mat(roi);
+        gsub = gmat(roi);
+    }
+
+    void random_roi(int type)
+    {
+        Size srcSize, dstSize;
+        int minSize = min(fx, fy) < 1.0 ? 10 : 1;
+        while (dstSize.empty())
+        {
+            srcSize = randomSize(minSize, 129);
+            srcSize.width += widthMultiple - 1 - (srcSize.width - 1) % widthMultiple;
+            dstSize.width = cvRound(srcSize.width * fx);
+            dstSize.height = cvRound(srcSize.height * fy);
+        }
+
+        random_submat(type, srcSize, src_loc, src, src_roi, gsrc, gsrc_roi);
+        random_submat(type, dstSize, dst_loc, dst, dst_roi, gdst, gdst_roi);
+    }
+};
+
+OCL_TEST_P(ResizeOnnx, Mat)
+{
+    Mat host, host_roi;
+    double eps = depth <= CV_32S ? integerEps : 5e-2;
+
+    // loop on channel to reduce the number of test
+    for (int cn = 1; cn <= 6; ++cn)
+    {
+        int type = CV_MAKETYPE(depth, cn);
+        for (int j = 0; j < test_loop_times; ++j)
+        {
+            random_roi(type);
+
+            OCL_OFF(cv::resizeOnnx(src_roi, dst_roi,
+                dst_roi.size(), Point2d(fx, fy), interpolation));
+            OCL_ON(cv::resizeOnnx(gsrc_roi, gdst_roi,
+                dst_roi.size(), Point2d(fx, fy), interpolation));
+
+            // copy whole gdst to make sure that
+            // we really use the given roi memory and not allocate a new one
+            gdst.copyTo(host);
+            host_roi = host(dst_loc);
+            string info = cv::format(
+                "fail on type %sC%d src %dx%d dst %dx%d src_roi %dx%d dst_roi %dx%d",
+                depthToString(depth), cn, src.cols, src.rows, dst.cols, dst.rows,
+                src_roi.cols, src_roi.rows, dst_roi.cols, dst_roi.rows);
+            EXPECT_LE(cv::norm(dst_roi, host_roi, NORM_INF), eps) << info;
+        }
+    }
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 // remap
@@ -600,6 +680,47 @@ OCL_INSTANTIATE_TEST_CASE_P(ImgprocWarpResizeArea, Resize, Combine(
                             Values(0.7, 0.4, 0.5),
                             Values(0.3, 0.6, 0.5),
                             Values((Interpolation)INTER_AREA),
+                            Bool(),
+                            Values(1, 16)));
+
+OCL_INSTANTIATE_TEST_CASE_P(ImgprocWarp, ResizeOnnx, Combine(
+                            Values(CV_8U, CV_8S, CV_16U, CV_16S, CV_32F),
+                            Values(0.4, 0.27, 1.6),
+                            Values(0.5, 0.71, 2.7),
+                            Values((int)(INTER_LINEAR), (int)(INTER_CUBIC)),
+                            Bool(),
+                            Values(1, 16)));
+
+OCL_INSTANTIATE_TEST_CASE_P(ImgprocWarpAntiAlias, ResizeOnnx, Combine(
+                            Values(CV_8U, CV_8S, CV_16U, CV_16S, CV_32F),
+                            Values(0.4, 0.27, 1.6),
+                            Values(0.5, 0.71, 2.7),
+                            Values(
+                                (int)(INTER_ANTIALIAS | INTER_LINEAR),
+                                (int)(INTER_ANTIALIAS | INTER_CUBIC )),
+                            Bool(),
+                            Values(1, 16)));
+
+OCL_INSTANTIATE_TEST_CASE_P(ImgprocWarpExcludeOutside, ResizeOnnx, Combine(
+                            Values(CV_8U, CV_8S, CV_16U, CV_16S, CV_32F),
+                            Values(0.4, 0.27, 1.6),
+                            Values(0.5, 0.71, 2.7),
+                            Values(
+                                (int)(                  INTER_CUBIC  | INTER_EXCLUDE_OUTSIDE),
+                                (int)(INTER_ANTIALIAS | INTER_CUBIC  | INTER_EXCLUDE_OUTSIDE),
+                                (int)(INTER_ANTIALIAS | INTER_LINEAR | INTER_EXCLUDE_OUTSIDE)),
+                            Bool(),
+                            Values(1, 16)));
+
+OCL_INSTANTIATE_TEST_CASE_P(ImgprocWarpNearest, ResizeOnnx, Combine(
+                            Values(CV_8S, CV_16S, CV_32F, CV_64F),
+                            Values(0.4, 0.27, 1.6),
+                            Values(0.5, 0.71, 2.7),
+                            Values(
+                                (int)(INTER_NEAREST | INTER_NEAREST_PREFER_FLOOR),
+                                (int)(INTER_NEAREST | INTER_NEAREST_PREFER_CEIL),
+                                (int)(INTER_NEAREST | INTER_NEAREST_CEIL),
+                                (int)(INTER_NEAREST | INTER_NEAREST_FLOOR)),
                             Bool(),
                             Values(1, 16)));
 
