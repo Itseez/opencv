@@ -123,7 +123,415 @@ public:
     }
 };
 
-#if CV_SIMD128
+#if CV_SIMD256
+class SIMDBayerInterpolator_8u
+{
+public:
+    int bayer2Gray(const uchar* bayer, int bayer_step, uchar* dst,
+                   int width, int bcoeff, int gcoeff, int rcoeff) const
+    {
+        v_uint16x16 v255 = v256_setall_u16(255);
+        v_int16x16 v_descale = v256_setall_s16(static_cast<short>(1 << 14));
+        v_int16x16 dummy;
+        v_int16x16 cxrb;
+        v_int16x16 cxg2;
+        v_zip(v256_setall_s16(static_cast<short>(rcoeff)),
+              v256_setall_s16(static_cast<short>(bcoeff)),
+              cxrb,
+              dummy);
+        v_zip(v256_setall_s16(static_cast<short>(gcoeff)),
+              v256_setall_s16(static_cast<short>(2)),
+              cxg2,
+              dummy);
+
+        const uchar* bayer_end = bayer + width;
+
+        for (; bayer < bayer_end - 34; bayer += 30, dst += 30)
+        {
+            v_uint16x16 first_line = v_reinterpret_as_u16(v256_load(bayer));
+            v_uint16x16 second_line = v_reinterpret_as_u16(v256_load(bayer + bayer_step));
+            v_uint16x16 third_line = v_reinterpret_as_u16(v256_load(bayer + bayer_step * 2));
+
+            // bayer[0]
+            v_uint16x16 first_line0 = v_and(first_line, v255);
+            // bayer[bayer_step*2]
+            v_uint16x16 third_line0 = v_and(third_line, v255);
+            // bayer[0] + bayer[bayer_step*2]
+            v_uint16x16 first_third_line0 = v_add(first_line0, third_line0);
+            // bayer[2] + bayer[bayer_step*2+2]
+            v_uint16x16 first_third_line2 = v_rotate_right<1>(first_third_line0);
+            // bayer[0] + bayer[2] + bayer[bayer_step*2] + bayer[bayer_step*2+2]
+            v_int16x16 r0 = v_reinterpret_as_s16(v_add(first_third_line0, first_third_line2));
+            // (bayer[2] + bayer[bayer_step*2+2]) * 2
+            v_int16x16 r1 = v_reinterpret_as_s16(v_shl<1>(first_third_line2));
+
+            // bayer[bayer_step+1]
+            v_uint16x16 second_line1 = v_shr<8>(second_line);
+            // bayer[bayer_step+1] * 4
+            v_int16x16 b0 = v_reinterpret_as_s16(v_shl<2>(second_line1));
+            // bayer[bayer_step+3]
+            v_uint16x16 second_line3 = v_rotate_right<1>(second_line1);
+            // bayer[bayer_step+1] + bayer[bayer_step+3]
+            v_uint16x16 second_line13 = v_add(second_line1, second_line3);
+            // (bayer[bayer_step+1] + bayer[bayer_step+3]) * 2
+            v_int16x16 b1 = v_reinterpret_as_s16(v_shl(second_line13, 1));
+
+            // bayer[1]
+            v_uint16x16 first_line1 = v_shr<8>(first_line);
+            // bayer[bayer_step]
+            v_uint16x16 second_line0 = v_and(second_line, v255);
+            // bayer[bayer_step+2]
+            v_uint16x16 second_line2 = v_rotate_right<1>(second_line0);
+            // bayer[bayer_step] + bayer[bayer_step+2]
+            v_uint16x16 second_line02 = v_add(second_line0, second_line2);
+            // bayer[bayer_step*2+1]
+            v_uint16x16 third_line1 = v_shr<8>(third_line);
+            // bayer[1] + bayer[bayer_step*2+1]
+            v_uint16x16 first_third_line1 = v_add(first_line1, third_line1);
+            // bayer[1] + bayer[bayer_step] + bayer[bayer_step+2] + bayer[bayer_step*2+1]
+            v_int16x16 g0 = v_reinterpret_as_s16(v_add(first_third_line1, second_line02));
+            // bayer[bayer_step+2] * 4
+            v_int16x16 g1 = v_reinterpret_as_s16(v_shl<2>(second_line2));
+
+            v_int16x16 rb0;
+            v_int16x16 rb1;
+            v_int16x16 rb2;
+            v_int16x16 rb3;
+            v_zip(r0, b0, rb0, rb1);
+            v_zip(r1, b1, rb2, rb3);
+
+            v_int16x16 gd0;
+            v_int16x16 gd1;
+            v_int16x16 gd2;
+            v_int16x16 gd3;
+            v_zip(g0, v_descale, gd0, gd1);
+            v_zip(g1, v_descale, gd2, gd3);
+
+            v_int32x8 gray_even0 = v_shr<16>(v_add(v_dotprod(rb0, cxrb), v_dotprod(gd0, cxg2)));
+            v_int32x8 gray_even1 = v_shr<16>(v_add(v_dotprod(rb1, cxrb), v_dotprod(gd1, cxg2)));
+            v_int32x8 gray_odd0 = v_shr<16>(v_add(v_dotprod(rb2, cxrb), v_dotprod(gd2, cxg2)));
+            v_int32x8 gray_odd1 = v_shr<16>(v_add(v_dotprod(rb3, cxrb), v_dotprod(gd3, cxg2)));
+
+            v_int16x16 gray_even = v_pack(gray_even0, gray_even1);
+            v_int16x16 gray_odd = v_pack(gray_odd0, gray_odd1);
+
+            v_int16x16 gray_d0;
+            v_int16x16 gray_d1;
+            v_zip(gray_even, gray_odd, gray_d0, gray_d1);
+
+            v_uint8x32 gray = v_pack(v_reinterpret_as_u16(gray_d0), v_reinterpret_as_u16(gray_d1));
+
+            v_store(dst, gray);
+        }
+        return (int)(bayer - (bayer_end - width));
+    }
+
+    int bayer2RGB(const uchar* bayer, int bayer_step, uchar* dst, int width, int blue) const
+    {
+        v_uint16x16 delta1 = v256_setall_u16(1), delta2 = v256_setall_u16(2);
+        v_uint16x16 mask = v256_setall_u16(blue < 0 ? (ushort)(-1) : 0);
+        v_uint16x16 masklo = v256_setall_u16(0x00ff);
+        v_uint8x32 z = v256_setzero_u8();
+        const uchar* bayer_end = bayer + width;
+        for( ; bayer <= bayer_end - 34; bayer += 28, dst += 84 )
+        {
+            v_uint16x16 r0 = v_reinterpret_as_u16(v256_load(bayer));
+            v_uint16x16 r1 = v_reinterpret_as_u16(v256_load(bayer+bayer_step));
+            v_uint16x16 r2 = v_reinterpret_as_u16(v256_load(bayer+bayer_step*2));
+
+            v_uint16x16 b1 = v_add(v_and(r0, masklo), v_and(r2, masklo));
+            v_uint16x16 nextb1 = v_rotate_right<1>(b1);
+            v_uint16x16 b0 = v_add(b1, nextb1);
+            b1 = v_shr<1>(v_add(nextb1, delta1));
+            b0 = v_shr<2>(v_add(b0, delta2));
+            // b0 b2 ... b30 b1 b3 ... b31
+            b0 = v_reinterpret_as_u16(v_pack_u(v_reinterpret_as_s16(b0), v_reinterpret_as_s16(b1)));
+
+            v_uint16x16 g0 = v_add(v_shr<8>(r0), v_shr<8>(r2));
+            v_uint16x16 g1 = v_and(r1, masklo);
+            g0 = v_add(g0, v_add(v_rotate_right<1>(g1), g1));
+            g1 = v_rotate_right<1>(g1);
+            g0 = v_shr<2>(v_add(g0, delta2));
+            // g0 g2 ... g30 g1 g3 ... g31
+            g0 = v_reinterpret_as_u16(v_pack_u(v_reinterpret_as_s16(g0), v_reinterpret_as_s16(g1)));
+
+            r0 = v_shr<8>(r1);
+            r1 = v_add(v_rotate_right<1>(r0), r0);
+            r1 = v_shr<1>(v_add(r1, delta1));
+            // r0 r2 ... r30 r1 r3 ... r31
+            r0 = v_reinterpret_as_u16(v_pack_u(v_reinterpret_as_s16(r0), v_reinterpret_as_s16(r1)));
+
+            b1 = v_and(v_xor(b0, r0), mask);
+            b0 = v_xor(b0, b1);
+            r0 = v_xor(r0, b1);
+
+            // b1 g1 b3 g3 b5 g5...
+            v_uint8x32 pack_lo, pack_hi;
+            v_zip(v_reinterpret_as_u8(b0), v_reinterpret_as_u8(g0), pack_lo, pack_hi);
+            b1 = v_reinterpret_as_u16(pack_hi);
+            // b0 g0 b2 g2 b4 g4 ....
+            b0 = v_reinterpret_as_u16(pack_lo);
+
+            // r1 0 r3 0 r5 0 ...
+            v_zip(v_reinterpret_as_u8(r0), z, pack_lo, pack_hi);
+            r1 = v_reinterpret_as_u16(pack_hi);
+            // r0 0 r2 0 r4 0 ...
+            r0 = v_reinterpret_as_u16(pack_lo);
+
+            // 0 b0 g0 r0 0 b2 g2 r2 ...
+            v_zip(b0, r0, g0, g1);
+            g0 = v_reinterpret_as_u16(v_rotate_left<1>(v_reinterpret_as_u8(g0)));
+            // 0 b16 g16 r16 0 b18 g18 r18 ...
+            g1 = v_reinterpret_as_u16(v_rotate_left<1>(v_reinterpret_as_u8(g1)));
+
+            // b1 g1 r1 0 b3 g3 r3 0 ...
+            v_zip(b1, r1, r0, r1);
+            // b17 g17 r17 0 b19 g19 r19 0 ...
+
+            // 0 b0 g0 r0 b1 g1 r1 0 ...
+            v_uint32x8 pack32_lo, pack32_hi;
+            v_zip(v_reinterpret_as_u32(g0), v_reinterpret_as_u32(r0), pack32_lo, pack32_hi);
+            b0 = v_reinterpret_as_u16(v_rotate_right<1>(v_reinterpret_as_u8(pack32_lo)));
+            // 0 b8 g8 r8 b9 g9 r9 0 ...
+            b1 = v_reinterpret_as_u16(v_rotate_right<1>(v_reinterpret_as_u8(pack32_hi)));
+
+            // store x[63:0] to ptr
+            #define v_store_1_4(ptr, x) _mm_storel_epi64((__m128i*)(ptr), _mm256_castsi256_si128(x.val))
+            // store x[127:64] to ptr
+            #define v_store_2_4(ptr, x) _mm_storel_epi64((__m128i*)(ptr), _mm_unpackhi_epi64(_mm256_castsi256_si128(x.val), _mm256_castsi256_si128(x.val)))
+            // store x[191:128] to ptr
+            #define v_store_3_4(ptr, x) _mm_storel_epi64((__m128i*)(ptr), _mm256_extracti128_si256(x.val, 1))
+            // store x[255:192] to ptr
+            #define v_store_4_4(ptr, x) _mm_storel_epi64((__m128i*)(ptr), _mm_unpackhi_epi64(_mm256_extracti128_si256(x.val, 1), _mm256_extracti128_si256(x.val, 1)))
+
+            v_store_1_4(dst-1+0, b0);
+            v_store_2_4(dst-1+6*1, b0);
+            v_store_3_4(dst-1+6*2, b0);
+            v_store_4_4(dst-1+6*3, b0);
+            v_store_1_4(dst-1+6*4, b1);
+            v_store_2_4(dst-1+6*5, b1);
+            v_store_3_4(dst-1+6*6, b1);
+            v_store_4_4(dst-1+6*7, b1);
+
+            // 0 b8 g8 r8 b9 g9 r9 0 ...
+            v_zip(v_reinterpret_as_u32(g1), v_reinterpret_as_u32(r1), pack32_lo, pack32_hi);
+            g0 = v_reinterpret_as_u16(v_rotate_right<1>(v_reinterpret_as_u8(pack32_lo)));
+            // 0 b12 g12 r12 b13 g13 r13 0 ...
+            g1 = v_reinterpret_as_u16(v_rotate_right<1>(v_reinterpret_as_u8(pack32_hi)));
+
+            v_store_1_4(dst-1+6*8, g0);
+            v_store_2_4(dst-1+6*9, g0);
+            v_store_3_4(dst-1+6*10, g0);
+            v_store_4_4(dst-1+6*11, g0);
+            v_store_1_4(dst-1+6*12, g1);
+            v_store_2_4(dst-1+6*13, g1);
+        }
+
+        return (int)(bayer - (bayer_end - width));
+    }
+
+    int bayer2RGBA(const uchar* bayer, int bayer_step, uchar* dst, int width, int blue, const uchar alpha) const
+    {
+        v_uint16x16 delta1 = v256_setall_u16(1), delta2 = v256_setall_u16(2);
+        v_uint16x16 mask = v256_setall_u16(blue < 0 ? (ushort)(-1) : 0);
+        v_uint16x16 masklo = v256_setall_u16(0x00ff);
+        v_uint8x32 a = v256_setall_u8(alpha);
+        const uchar* bayer_end = bayer + width;
+
+        for( ; bayer <= bayer_end - 34; bayer += 28, dst += 112 )
+        {
+            v_uint16x16 r0 = v_reinterpret_as_u16(v256_load(bayer));
+            v_uint16x16 r1 = v_reinterpret_as_u16(v256_load(bayer+bayer_step));
+            v_uint16x16 r2 = v_reinterpret_as_u16(v256_load(bayer+bayer_step*2));
+
+            v_uint16x16 b1 = v_add(v_and(r0, masklo), v_and(r2, masklo));
+            v_uint16x16 nextb1 = v_rotate_right<1>(b1);
+            v_uint16x16 b0 = v_add(b1, nextb1);
+            b1 = v_shr<1>(v_add(nextb1, delta1));
+            b0 = v_shr<2>(v_add(b0, delta2));
+            // b0 b2 ... b30 b1 b3 ... b31
+            b0 = v_reinterpret_as_u16(v_pack_u(v_reinterpret_as_s16(b0), v_reinterpret_as_s16(b1)));
+
+            v_uint16x16 g0 = v_add(v_shr<8>(r0), v_shr<8>(r2));
+            v_uint16x16 g1 = v_and(r1, masklo);
+            g0 = v_add(g0, v_add(v_rotate_right<1>(g1), g1));
+            g1 = v_rotate_right<1>(g1);
+            g0 = v_shr<2>(v_add(g0, delta2));
+            // g0 g2 ... g30 g1 g3 ... g31
+            g0 = v_reinterpret_as_u16(v_pack_u(v_reinterpret_as_s16(g0), v_reinterpret_as_s16(g1)));
+
+            r0 = v_shr<8>(r1);
+            r1 = v_add(v_rotate_right<1>(r0), r0);
+            r1 = v_shr<1>(v_add(r1, delta1));
+            // r0 r2 ... r30 r1 r3 ... r31
+            r0 = v_reinterpret_as_u16(v_pack_u(v_reinterpret_as_s16(r0), v_reinterpret_as_s16(r1)));
+
+            b1 = v_and(v_xor(b0, r0), mask);
+            b0 = v_xor(b0, b1);
+            r0 = v_xor(r0, b1);
+
+            // b1 g1 b3 g3 b5 g5...
+            v_uint8x32 pack_lo, pack_hi;
+            v_zip(v_reinterpret_as_u8(b0), v_reinterpret_as_u8(g0), pack_lo, pack_hi);
+            b1 = v_reinterpret_as_u16(pack_hi);
+            // b0 g0 b2 g2 b4 g4 ....
+            b0 = v_reinterpret_as_u16(pack_lo);
+
+            // r1 a r3 a r5 a ...
+            v_zip(v_reinterpret_as_u8(r0), a, pack_lo, pack_hi);
+            r1 = v_reinterpret_as_u16(pack_hi);
+            // r0 a r2 a r4 a ...
+            r0 = v_reinterpret_as_u16(pack_lo);
+
+            // b0 g0 r0 a b2 g2 r2 a ...
+            v_zip(b0, r0, g0, g1);
+            // b16 g16 r16 a b18 g18 r18 a ...
+
+            // b1 g1 r1 a b3 g3 r3 a ...
+            v_zip(b1, r1, r0, r1);
+            // b17 g17 r17 a b19 g19 r19 a ...
+
+            v_uint32x8 pack32_lo, pack32_hi;
+            v_zip(v_reinterpret_as_u32(g0), v_reinterpret_as_u32(r0), pack32_lo, pack32_hi);
+            // b0 g0 r0 a b1 g1 r1 a ...
+            b0 = v_reinterpret_as_u16(pack32_lo);
+            b1 = v_reinterpret_as_u16(pack32_hi);
+
+            v_store_low(dst-1+0, v_reinterpret_as_u8(b0));
+            v_store_high(dst-1+16*1, v_reinterpret_as_u8(b0));
+            v_store_low(dst-1+16*2, v_reinterpret_as_u8(b1));
+            v_store_high(dst-1+16*3, v_reinterpret_as_u8(b1));
+
+            // b16 g16 r16 a b17 g17 r17 a ...
+            v_zip(v_reinterpret_as_u32(g1), v_reinterpret_as_u32(r1), pack32_lo, pack32_hi);
+            g0 = v_reinterpret_as_u16(pack32_lo);
+            g1 = v_reinterpret_as_u16(pack32_hi);
+
+            v_store_low(dst-1+16*4, v_reinterpret_as_u8(g0));
+            v_store_high(dst-1+16*5, v_reinterpret_as_u8(g0));
+
+            v_store_low(dst-1+16*6, v_reinterpret_as_u8(g1));
+        }
+
+        return (int)(bayer - (bayer_end - width));
+    }
+
+    int bayer2RGB_EA(const uchar* bayer, int bayer_step, uchar* dst, int width, int blue) const
+    {
+        const uchar* bayer_end = bayer + width;
+        v_uint16x16 masklow = v256_setall_u16(0x00ff);
+        v_uint16x16 delta1 = v256_setall_u16(1), delta2 = v256_setall_u16(2);
+        v_uint16x16 full = v256_setall_u16((ushort)(-1));
+        v_uint8x32 z = v256_setzero_u8();
+        v_uint16x16 mask = v256_setall_u16(blue > 0 ? (ushort)(-1) : 0);
+
+        for ( ; bayer <= bayer_end - 34; bayer += 28, dst += 84)
+        {
+            v_uint16x16 r0 = v_reinterpret_as_u16(v256_load(bayer));
+            v_uint16x16 r1 = v_reinterpret_as_u16(v256_load(bayer+bayer_step));
+            v_uint16x16 r2 = v_reinterpret_as_u16(v256_load(bayer+bayer_step*2));
+
+            v_uint16x16 b1 = v_add(v_and(r0, masklow), v_and(r2, masklow));
+            v_uint16x16 nextb1 = v_rotate_right<1>(b1);
+            v_uint16x16 b0 = v_add(b1, nextb1);
+            b1 = v_shr<1>(v_add(nextb1, delta1));
+            b0 = v_shr<2>(v_add(b0, delta2));
+            // b0 b2 ... b30 b1 b3 ... b31
+            b0 = v_reinterpret_as_u16(v_pack_u(v_reinterpret_as_s16(b0), v_reinterpret_as_s16(b1)));
+
+            // vertical sum
+            v_uint16x16 r0g = v_shr<8>(r0);
+            v_uint16x16 r2g = v_shr<8>(r2);
+            v_uint16x16 sumv = v_shr<1>(v_add(v_add(r0g, r2g), delta1));
+            // horizontal sum
+            v_uint16x16 g1 = v_and(r1, masklow);
+            v_uint16x16 nextg1 = v_rotate_right<1>(g1);
+            v_uint16x16 sumg = v_shr<1>(v_add(v_add(g1, nextg1), delta1));
+
+            // gradients
+            v_uint16x16 gradv = v_add(v_sub(r0g, r2g), v_sub(r2g, r0g));
+            v_uint16x16 gradg = v_add(v_sub(nextg1, g1), v_sub(g1, nextg1));
+            v_uint16x16 gmask = v_gt(gradg, gradv);
+            v_uint16x16 g0 = v_add(v_and(gmask, sumv), v_and(sumg, v_xor(gmask, full)));
+            // g0 g2 ... g14 g1 g3 ...
+            g0 = v_reinterpret_as_u16(v_pack_u(v_reinterpret_as_s16(g0), v_reinterpret_as_s16(nextg1)));
+
+            r0 = v_shr<8>(r1);
+            r1 = v_add(v_rotate_right<1>(r0), r0);
+            r1 = v_shr<1>(v_add(r1, delta1));
+            // r0 r2 ... r30 r1 r3 ... r31
+            r0 = v_reinterpret_as_u16(v_pack_u(v_reinterpret_as_s16(r0), v_reinterpret_as_s16(r1)));
+
+            b1 = v_and(v_xor(b0, r0), mask);
+            b0 = v_xor(b0, b1);
+            r0 = v_xor(r0, b1);
+
+            // b1 g1 b3 g3 b5 g5...
+            v_uint8x32 pack_lo, pack_hi;
+            v_zip(v_reinterpret_as_u8(b0), v_reinterpret_as_u8(g0), pack_lo, pack_hi);
+            b1 = v_reinterpret_as_u16(pack_hi);
+            // b0 g0 b2 g2 b4 g4 ....
+            b0 = v_reinterpret_as_u16(pack_lo);
+
+            // r1 0 r3 0 r5 0 ...
+            v_zip(v_reinterpret_as_u8(r0), z, pack_lo, pack_hi);
+            r1 = v_reinterpret_as_u16(pack_hi);
+            // r0 0 r2 0 r4 0 ...
+            r0 = v_reinterpret_as_u16(pack_lo);
+
+            // 0 b0 g0 r0 0 b2 g2 r2 ...
+            v_zip(b0, r0, g0, g1);
+            g0 = v_reinterpret_as_u16(v_rotate_left<1>(v_reinterpret_as_u8(g0)));
+            // 0 b16 g16 r16 0 b18 g18 r18 ...
+            g1 = v_reinterpret_as_u16(v_rotate_left<1>(v_reinterpret_as_u8(g1)));
+
+            // b1 g1 r1 0 b3 g3 r3 0 ...
+            v_zip(b1, r1, r0, r1);
+            // b17 g17 r17 0 b19 g19 r19 0 ...
+
+            // 0 b0 g0 r0 b1 g1 r1 0 ...
+            v_uint32x8 pack32_lo, pack32_hi;
+            v_zip(v_reinterpret_as_u32(g0), v_reinterpret_as_u32(r0), pack32_lo, pack32_hi);
+            b0 = v_reinterpret_as_u16(v_rotate_right<1>(v_reinterpret_as_u8(pack32_lo)));
+            // 0 b8 g8 r8 b9 g9 r9 0 ...
+            b1 = v_reinterpret_as_u16(v_rotate_right<1>(v_reinterpret_as_u8(pack32_hi)));
+
+            // store x[63:0] to ptr
+            #define v_store_1_4(ptr, x) _mm_storel_epi64((__m128i*)(ptr), _mm256_castsi256_si128(x.val))
+            // store x[127:64] to ptr
+            #define v_store_2_4(ptr, x) _mm_storel_epi64((__m128i*)(ptr), _mm_unpackhi_epi64(_mm256_castsi256_si128(x.val), _mm256_castsi256_si128(x.val)))
+            // store x[191:128] to ptr
+            #define v_store_3_4(ptr, x) _mm_storel_epi64((__m128i*)(ptr), _mm256_extracti128_si256(x.val, 1))
+            // store x[255:192] to ptr
+            #define v_store_4_4(ptr, x) _mm_storel_epi64((__m128i*)(ptr), _mm_unpackhi_epi64(_mm256_extracti128_si256(x.val, 1), _mm256_extracti128_si256(x.val, 1)))
+
+            v_store_1_4(dst-1+0, b0);
+            v_store_2_4(dst-1+6*1, b0);
+            v_store_3_4(dst-1+6*2, b0);
+            v_store_4_4(dst-1+6*3, b0);
+            v_store_1_4(dst-1+6*4, b1);
+            v_store_2_4(dst-1+6*5, b1);
+            v_store_3_4(dst-1+6*6, b1);
+            v_store_4_4(dst-1+6*7, b1);
+
+            // 0 b8 g8 r8 b9 g9 r9 0 ...
+            v_zip(v_reinterpret_as_u32(g1), v_reinterpret_as_u32(r1), pack32_lo, pack32_hi);
+            g0 = v_reinterpret_as_u16(v_rotate_right<1>(v_reinterpret_as_u8(pack32_lo)));
+            // 0 b12 g12 r12 b13 g13 r13 0 ...
+            g1 = v_reinterpret_as_u16(v_rotate_right<1>(v_reinterpret_as_u8(pack32_hi)));
+
+            v_store_1_4(dst-1+6*8, g0);
+            v_store_2_4(dst-1+6*9, g0);
+            v_store_3_4(dst-1+6*10, g0);
+            v_store_4_4(dst-1+6*11, g0);
+            v_store_1_4(dst-1+6*12, g1);
+            v_store_2_4(dst-1+6*13, g1);
+        }
+
+        return int(bayer - (bayer_end - width));
+    }
+};
+#elif CV_SIMD128
 class SIMDBayerInterpolator_8u
 {
 public:
@@ -1096,8 +1504,43 @@ static void Bayer2RGB_VNG_8u( const Mat& srcmat, Mat& dstmat, int code )
                 brow[N*i-1] = brow[(N-2) + N*i] = 0;
 
             i = 1;
+#if CV_SIMD256
+            for( ; i <= N-17; i += 16, srow += 16, brow += 16)
+            {
+                v_uint16x16 s1, s2, s3, s4, s6, s7, s8, s9;
 
-#if CV_SIMD128
+                s1 = v256_load_expand(srow-1-bstep);
+                s2 = v256_load_expand(srow-bstep);
+                s3 = v256_load_expand(srow+1-bstep);
+
+                s4 = v256_load_expand(srow-1);
+                s6 = v256_load_expand(srow+1);
+
+                s7 = v256_load_expand(srow-1+bstep);
+                s8 = v256_load_expand(srow+bstep);
+                s9 = v256_load_expand(srow+1+bstep);
+
+                v_uint16x16 b0, b1, b2, b3, b4, b5, b6;
+
+                b0 = v_add(v_add(v_shl<1>(v_absdiff(s2, s8)), v_absdiff(s1, s7)), v_absdiff(s3, s9));
+                b1 = v_add(v_add(v_shl<1>(v_absdiff(s4, s6)), v_absdiff(s1, s3)), v_absdiff(s7, s9));
+                b2 = v_shl<1>(v_absdiff(s3, s7));
+                b3 = v_shl<1>(v_absdiff(s1, s9));
+
+                v_store(brow, b0);
+                v_store(brow + N, b1);
+                v_store(brow + N2, b2);
+                v_store(brow + N3, b3);
+
+                b4 = v_add(v_add(b2, v_absdiff(s2, s4)), v_absdiff(s6, s8));
+                b5 = v_add(v_add(b3, v_absdiff(s2, s6)), v_absdiff(s4, s8));
+                b6 = v_shr<1>(v_add(v_add(v_add(s2, s4), s6), s8));
+
+                v_store(brow + N4, b4);
+                v_store(brow + N5, b5);
+                v_store(brow + N6, b6);
+            }
+#elif CV_SIMD128
             for( ; i <= N-9; i += 8, srow += 8, brow += 8 )
             {
                 v_uint16x8 s1, s2, s3, s4, s6, s7, s8, s9;
@@ -1161,7 +1604,7 @@ static void Bayer2RGB_VNG_8u( const Mat& srcmat, Mat& dstmat, int code )
         bool greenCell = greenCell0;
 
         i = 2;
-#if CV_SIMD128
+#if CV_SIMD256 || CV_SIMD128
         int limit = greenCell ? std::min(3, N-2) : 2;
 #else
         int limit = N - 2;
@@ -1329,7 +1772,243 @@ static void Bayer2RGB_VNG_8u( const Mat& srcmat, Mat& dstmat, int code )
                 greenCell = !greenCell;
             }
 
-#if CV_SIMD128
+#if CV_SIMD256
+            v_uint32x8 emask = v256_setall_u32(0x0000ffff), omask = v256_setall_u32(0xffff0000);
+            v_uint16x16 one = v256_setall_u16(1), z = v256_setzero_u16();
+            v_float32x8 _0_5 = v256_setall_f32(0.5f);
+
+            //(aA_aA_aA_aA_aA_aA_aA_aA) * (bB_bB_bB_bB_bB_bB_bB_bB) => (bA_bA_bA_bA_bA_bA_bA_bA)
+            #define v_merge_u16(a, b) (v_or((v_and((a), v_reinterpret_as_u16(emask))), (v_and((b), v_reinterpret_as_u16(omask)))))
+
+            //(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16) => (1f,2f,3f,4f,5f,6f,7f,8f)
+            #define v_cvt_s16f32_lo(a)  v_cvt_f32(v_expand_low(v_reinterpret_as_s16(a)))
+
+            //(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16) => (9f,10f,11f,12f,13f,14f,15f,16f)
+            #define v_cvt_s16f32_hi(a)  v_cvt_f32(v_expand_high(v_reinterpret_as_s16(a)))
+
+            // process 16 pixels at once
+            for( ; i <= N - 18; i += 16, srow += 16, brow0 += 16, brow1 += 16, brow2 += 16 )
+            {
+                //int gradN = brow0[0] + brow1[0];
+                v_uint16x16 gradN = v_add(v256_load(brow0), v256_load(brow1));
+
+                //int gradS = brow1[0] + brow2[0];
+                v_uint16x16 gradS = v_add(v256_load(brow1), v256_load(brow2));
+
+                //int gradW = brow1[N-1] + brow1[N];
+                v_uint16x16 gradW = v_add(v256_load(brow1 + N - 1), v256_load(brow1 + N));
+
+                //int gradE = brow1[N+1] + brow1[N];
+                v_uint16x16 gradE = v_add(v256_load(brow1 + N + 1), v256_load(brow1 + N));
+
+                //int minGrad = std::min(std::min(std::min(gradN, gradS), gradW), gradE);
+                //int maxGrad = std::max(std::max(std::max(gradN, gradS), gradW), gradE);
+                v_uint16x16 minGrad = v_min(v_min(gradN, gradS), v_min(gradW, gradE));
+                v_uint16x16 maxGrad = v_max(v_max(gradN, gradS), v_max(gradW, gradE));
+
+                v_uint16x16 grad0, grad1;
+
+                //int gradNE = brow0[N4+1] + brow1[N4];
+                //int gradNE = brow0[N2] + brow0[N2+1] + brow1[N2] + brow1[N2+1];
+                grad0 = v_add(v256_load(brow0 + N4 + 1), v256_load(brow1 + N4));
+                grad1 = v_add(v_add(v_add(v256_load(brow0 + N2), v256_load(brow0 + N2 + 1)), v256_load(brow1 + N2)), v256_load(brow1 + N2 + 1));
+                v_uint16x16 gradNE = v_merge_u16(grad0, grad1);
+
+                //int gradSW = brow1[N4] + brow2[N4-1];
+                //int gradSW = brow1[N2] + brow1[N2-1] + brow2[N2] + brow2[N2-1];
+                grad0 = v_add(v256_load(brow2 + N4 - 1), v256_load(brow1 + N4));
+                grad1 = v_add(v_add(v_add(v256_load(brow2 + N2), v256_load(brow2 + N2 - 1)), v256_load(brow1 + N2)), v256_load(brow1 + N2 - 1));
+                v_uint16x16 gradSW = v_merge_u16(grad0, grad1);
+
+                minGrad = v_min(v_min(minGrad, gradNE), gradSW);
+                maxGrad = v_max(v_max(maxGrad, gradNE), gradSW);
+
+                //int gradNW = brow0[N5-1] + brow1[N5];
+                //int gradNW = brow0[N3] + brow0[N3-1] + brow1[N3] + brow1[N3-1];
+                grad0 = v_add(v256_load(brow0 + N5 - 1), v256_load(brow1 + N5));
+                grad1 = v_add(v_add(v_add(v256_load(brow0 + N3), v256_load(brow0 + N3 - 1)), v256_load(brow1 + N3)), v256_load(brow1 + N3 - 1));
+                v_uint16x16 gradNW = v_merge_u16(grad0, grad1);
+
+                //int gradSE = brow1[N5] + brow2[N5+1];
+                //int gradSE = brow1[N3] + brow1[N3+1] + brow2[N3] + brow2[N3+1];
+                grad0 = v_add(v256_load(brow2 + N5 + 1), v256_load(brow1 + N5));
+                grad1 = v_add(v_add(v_add(v256_load(brow2 + N3), v256_load(brow2 + N3 + 1)), v256_load(brow1 + N3)), v256_load(brow1 + N3 + 1));
+                v_uint16x16 gradSE = v_merge_u16(grad0, grad1);
+
+                minGrad = v_min(v_min(minGrad, gradNW), gradSE);
+                maxGrad = v_max(v_max(maxGrad, gradNW), gradSE);
+
+                //int T = minGrad + maxGrad/2;
+                v_uint16x16 T = v_add(v_max((v_shr<1>(maxGrad)), one), minGrad);
+
+                v_uint16x16 RGs = z, GRs = z, Bs = z, ng = z;
+
+                v_uint16x16 x0  = v256_load_expand(srow +0);
+                v_uint16x16 x1  = v256_load_expand(srow -1 - bstep);
+                v_uint16x16 x2  = v256_load_expand(srow -1 - bstep*2);
+                v_uint16x16 x3  = v256_load_expand(srow    - bstep);
+                v_uint16x16 x4  = v256_load_expand(srow +1 - bstep*2);
+                v_uint16x16 x5  = v256_load_expand(srow +1 - bstep);
+                v_uint16x16 x6  = v256_load_expand(srow +2 - bstep);
+                v_uint16x16 x7  = v256_load_expand(srow +1);
+                v_uint16x16 x8  = v256_load_expand(srow +2 + bstep);
+                v_uint16x16 x9  = v256_load_expand(srow +1 + bstep);
+                v_uint16x16 x10 = v256_load_expand(srow +1 + bstep*2);
+                v_uint16x16 x11 = v256_load_expand(srow    + bstep);
+                v_uint16x16 x12 = v256_load_expand(srow -1 + bstep*2);
+                v_uint16x16 x13 = v256_load_expand(srow -1 + bstep);
+                v_uint16x16 x14 = v256_load_expand(srow -2 + bstep);
+                v_uint16x16 x15 = v256_load_expand(srow -1);
+                v_uint16x16 x16 = v256_load_expand(srow -2 - bstep);
+
+                v_uint16x16 t0, t1, mask;
+
+                // gradN ***********************************************
+                mask = (v_gt(T, gradN)); // mask = T>gradN
+                ng = v_reinterpret_as_u16(v_sub(v_reinterpret_as_s16(ng), v_reinterpret_as_s16(mask)));     // ng += (T>gradN)
+
+                t0 = (v_shl<1>(x3));                                 // srow[-bstep]*2
+                t1 = v_add(v256_load_expand(srow - bstep * 2), x0);  // srow[-bstep*2] + srow[0]
+
+                // RGs += (srow[-bstep*2] + srow[0]) * (T>gradN)
+                RGs = v_add(RGs, v_and(t1, mask));
+                // GRs += {srow[-bstep]*2; (srow[-bstep*2-1] + srow[-bstep*2+1])} * (T>gradN)
+                GRs = v_add(GRs, (v_and(v_merge_u16(t0, v_add(x2, x4)), mask)));
+                // Bs  += {(srow[-bstep-1]+srow[-bstep+1]); srow[-bstep]*2 } * (T>gradN)
+                Bs = v_add(Bs, v_and(v_merge_u16(v_add(x1, x5), t0), mask));
+
+                // gradNE **********************************************
+                mask = (v_gt(T, gradNE)); // mask = T>gradNE
+                ng = v_reinterpret_as_u16(v_sub(v_reinterpret_as_s16(ng), v_reinterpret_as_s16(mask)));     // ng += (T>gradNE)
+
+                t0 = (v_shl<1>(x5));                                    // srow[-bstep+1]*2
+                t1 = v_add(v256_load_expand(srow - bstep * 2 + 2), x0);   // srow[-bstep*2+2] + srow[0]
+
+                // RGs += {(srow[-bstep*2+2] + srow[0]); srow[-bstep+1]*2} * (T>gradNE)
+                RGs = v_add(RGs, v_and(v_merge_u16(t1, t0), mask));
+                // GRs += {brow0[N6+1]; (srow[-bstep*2+1] + srow[1])} * (T>gradNE)
+                GRs = v_add(GRs, v_and(v_merge_u16(v256_load(brow0+N6+1), v_add(x4, x7)), mask));
+                // Bs  += {srow[-bstep+1]*2; (srow[-bstep] + srow[-bstep+2])}  * (T>gradNE)
+                Bs = v_add(Bs, v_and(v_merge_u16(t0, v_add(x3, x6)), mask));
+
+                // gradE ***********************************************
+                mask = (v_gt(T, gradE));  // mask = T>gradE
+                ng = v_reinterpret_as_u16(v_sub(v_reinterpret_as_s16(ng), v_reinterpret_as_s16(mask)));     // ng += (T>gradE)
+
+                t0 = (v_shl<1>(x7));                         // srow[1]*2
+                t1 = v_add(v256_load_expand(srow + 2), x0); // srow[2] + srow[0]
+
+                // RGs += (srow[2] + srow[0]) * (T>gradE)
+                RGs = v_add(RGs, v_and(t1, mask));
+                // GRs += (srow[1]*2) * (T>gradE)
+                GRs = v_add(GRs, v_and(t0, mask));
+                // Bs  += {(srow[-bstep+1]+srow[bstep+1]); (srow[-bstep+2]+srow[bstep+2])} * (T>gradE)
+                Bs = v_add(Bs, v_and(v_merge_u16(v_add(x5, x9), v_add(x6, x8)), mask));
+
+                // gradSE **********************************************
+                mask = (v_gt(T, gradSE));  // mask = T>gradSE
+                ng = v_reinterpret_as_u16(v_sub(v_reinterpret_as_s16(ng), v_reinterpret_as_s16(mask)));     // ng += (T>gradSE)
+
+                t0 = (v_shl<1>(x9));                                 // srow[bstep+1]*2
+                t1 = v_add(v256_load_expand(srow + bstep * 2 + 2), x0); // srow[bstep*2+2] + srow[0]
+
+                // RGs += {(srow[bstep*2+2] + srow[0]); srow[bstep+1]*2} * (T>gradSE)
+                RGs = v_add(RGs, v_and(v_merge_u16(t1, t0), mask));
+                // GRs += {brow2[N6+1]; (srow[1]+srow[bstep*2+1])} * (T>gradSE)
+                GRs = v_add(GRs, v_and(v_merge_u16(v256_load(brow2+N6+1), v_add(x7, x10)), mask));
+                // Bs  += {srow[bstep+1]*2; (srow[bstep+2]+srow[bstep])} * (T>gradSE)
+                Bs = v_add(Bs, v_and(v_merge_u16((v_shl<1>(x9)), v_add(x8, x11)), mask));
+
+                // gradS ***********************************************
+                mask = (v_gt(T, gradS));  // mask = T>gradS
+                ng = v_reinterpret_as_u16(v_sub(v_reinterpret_as_s16(ng), v_reinterpret_as_s16(mask)));     // ng += (T>gradS)
+
+                t0 = (v_shl<1>(x11));                             // srow[bstep]*2
+                t1 = v_add(v256_load_expand(srow + bstep * 2), x0); // srow[bstep*2]+srow[0]
+
+                // RGs += (srow[bstep*2]+srow[0]) * (T>gradS)
+                RGs = v_add(RGs, v_and(t1, mask));
+                // GRs += {srow[bstep]*2; (srow[bstep*2+1]+srow[bstep*2-1])} * (T>gradS)
+                GRs = v_add(GRs, v_and(v_merge_u16(t0, v_add(x10, x12)), mask));
+                // Bs  += {(srow[bstep+1]+srow[bstep-1]); srow[bstep]*2} * (T>gradS)
+                Bs = v_add(Bs, v_and(v_merge_u16(v_add(x9, x13), t0), mask));
+
+                // gradSW **********************************************
+                mask = (v_gt(T, gradSW));  // mask = T>gradSW
+                ng = v_reinterpret_as_u16(v_sub(v_reinterpret_as_s16(ng), v_reinterpret_as_s16(mask)));     // ng += (T>gradSW)
+
+                t0 = (v_shl<1>(x13));                                // srow[bstep-1]*2
+                t1 = v_add(v256_load_expand(srow + bstep * 2 - 2), x0); // srow[bstep*2-2]+srow[0]
+
+                // RGs += {(srow[bstep*2-2]+srow[0]); srow[bstep-1]*2} * (T>gradSW)
+                RGs = v_add(RGs, v_and(v_merge_u16(t1, t0), mask));
+                // GRs += {brow2[N6-1]; (srow[bstep*2-1]+srow[-1])} * (T>gradSW)
+                GRs = v_add(GRs, v_and(v_merge_u16(v256_load(brow2+N6-1), v_add(x12, x15)), mask));
+                // Bs  += {srow[bstep-1]*2; (srow[bstep]+srow[bstep-2])} * (T>gradSW)
+                Bs = v_add(Bs, v_and(v_merge_u16(t0, v_add(x11, x14)), mask));
+
+                // gradW ***********************************************
+                mask = (v_gt(T, gradW));  // mask = T>gradW
+                ng = v_reinterpret_as_u16(v_sub(v_reinterpret_as_s16(ng), v_reinterpret_as_s16(mask)));     // ng += (T>gradW)
+
+                t0 = (v_shl<1>(x15));                         // srow[-1]*2
+                t1 = v_add(v256_load_expand(srow - 2), x0); // srow[-2]+srow[0]
+
+                // RGs += (srow[-2]+srow[0]) * (T>gradW)
+                RGs = v_add(RGs, v_and(t1, mask));
+                // GRs += (srow[-1]*2) * (T>gradW)
+                GRs = v_add(GRs, v_and(t0, mask));
+                // Bs  += {(srow[-bstep-1]+srow[bstep-1]); (srow[bstep-2]+srow[-bstep-2])} * (T>gradW)
+                Bs = v_add(Bs, v_and(v_merge_u16(v_add(x1, x13), v_add(x14, x16)), mask));
+
+                // gradNW **********************************************
+                mask = (v_gt(T, gradNW));  // mask = T>gradNW
+                ng = v_reinterpret_as_u16(v_sub(v_reinterpret_as_s16(ng), v_reinterpret_as_s16(mask)));     // ng += (T>gradNW)
+
+                t0 = (v_shl<1>(x1));                                 // srow[-bstep-1]*2
+                t1 = v_add(v256_load_expand(srow - bstep * 2 - 2), x0); // srow[-bstep*2-2]+srow[0]
+
+                // RGs += {(srow[-bstep*2-2]+srow[0]); srow[-bstep-1]*2} * (T>gradNW)
+                RGs = v_add(RGs, v_and(v_merge_u16(t1, t0), mask));
+                // GRs += {brow0[N6-1]; (srow[-bstep*2-1]+srow[-1])} * (T>gradNW)
+                GRs = v_add(GRs, v_and(v_merge_u16(v256_load(brow0+N6-1), v_add(x2, x15)), mask));
+                // Bs  += {srow[-bstep-1]*2; (srow[-bstep]+srow[-bstep-2])} * (T>gradNW)
+                Bs = v_add(Bs, v_and(v_merge_u16(v_shl<1>(x1), v_add(x3, x16)), mask));
+
+                v_float32x8 ngf0 = v_div(_0_5, v_cvt_s16f32_lo(ng));
+                v_float32x8 ngf1 = v_div(_0_5, v_cvt_s16f32_hi(ng));
+
+                // now interpolate r, g & b
+                t0 = v_reinterpret_as_u16(v_sub(v_reinterpret_as_s16(GRs), v_reinterpret_as_s16(RGs)));
+                t1 = v_reinterpret_as_u16(v_sub(v_reinterpret_as_s16(Bs), v_reinterpret_as_s16(RGs)));
+
+                t0 = v_reinterpret_as_u16(
+                    v_add(v_reinterpret_as_s16(x0),
+                        v_pack(
+                            v_round(v_mul(v_cvt_s16f32_lo(t0), ngf0)),
+                            v_round(v_mul(v_cvt_s16f32_hi(t0), ngf1)))));
+
+                t1 = v_reinterpret_as_u16(
+                    v_add(v_reinterpret_as_s16(x0),
+                        v_pack(
+                            v_round(v_mul(v_cvt_s16f32_lo(t1), ngf0)),
+                            v_round(v_mul(v_cvt_s16f32_hi(t1), ngf1)))));
+
+                x1 = v_merge_u16(x0, t0);
+                x2 = v_merge_u16(t0, x0);
+
+                uchar R[16], G[16], B[16];
+
+                v_store_low(blueIdx ? B : R, v_pack_u(v_reinterpret_as_s16(x1), v_reinterpret_as_s16(z)));
+                v_store_low(G, v_pack_u(v_reinterpret_as_s16(x2), v_reinterpret_as_s16(z)));
+                v_store_low(blueIdx ? R : B, v_pack_u(v_reinterpret_as_s16(t1), v_reinterpret_as_s16(z)));
+
+                for( int j = 0; j < 16; j++, dstrow += 3 )
+                {
+                    dstrow[0] = B[j]; dstrow[1] = G[j]; dstrow[2] = R[j];
+                }
+            }
+#elif CV_SIMD128
             v_uint32x4 emask = v_setall_u32(0x0000ffff), omask = v_setall_u32(0xffff0000);
             v_uint16x8 one = v_setall_u16(1), z = v_setzero_u16();
             v_float32x4 _0_5 = v_setall_f32(0.5f);
