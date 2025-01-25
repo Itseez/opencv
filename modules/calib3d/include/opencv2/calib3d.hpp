@@ -3770,8 +3770,7 @@ CV_64FC2) (or vector\<Point2f\> ).
 CV_EXPORTS_W
 void undistortImagePoints(InputArray src, OutputArray dst, InputArray cameraMatrix,
                           InputArray distCoeffs,
-                          TermCriteria = TermCriteria(TermCriteria::MAX_ITER + TermCriteria::EPS, 5,
-                                                      0.01));
+                          TermCriteria = TermCriteria(TermCriteria::MAX_ITER, 5, 0.01));
 
 //! @} calib3d
 
