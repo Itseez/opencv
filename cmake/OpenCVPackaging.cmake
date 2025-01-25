@@ -9,11 +9,9 @@ set(CPACK_set_DESTDIR "on")
 if(NOT OPENCV_CUSTOM_PACKAGE_INFO)
   set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Open Computer Vision Library")
   set(CPACK_PACKAGE_DESCRIPTION
-"OpenCV (Open Source Computer Vision Library) is an open source computer vision
-and machine learning software library. OpenCV was built to provide a common
-infrastructure for computer vision applications and to accelerate the use of
-machine perception in the commercial products. Being a BSD-licensed product,
-OpenCV makes it easy for businesses to utilize and modify the code.")
+"OpenCV (Open Source Computer Vision Library) is a free software library for computer vision and machine learning. It was created to provide tools for computer vision applications and help machines better understand the world.
+ As computer vision rapidly advances, Area Chairs support OpenCV by helping to develop and implement the latest algorithms in specific areas. 
+ Being a BSD-licensed product, OpenCV makes it easy for businesses to utilize and modify the code.")
   set(CPACK_PACKAGE_VENDOR "OpenCV Foundation")
   set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE")
   set(CPACK_PACKAGE_CONTACT "admin@opencv.org")
