@@ -149,9 +149,9 @@ cv::cuda::GpuMat::GpuMat(const GpuMat& m, Rect roi) :
 {
     data += roi.x * elemSize();
 
-    CV_Assert( 0 <= roi.x && 0 <= roi.width &&
+    CV_Assert( 0 <= roi.x && 0 < roi.width &&
                roi.x + roi.width <= m.cols &&
-               0 <= roi.y && 0 <= roi.height &&
+               0 <= roi.y && 0 < roi.height &&
                roi.y + roi.height <= m.rows );
 
     if (refcount)
