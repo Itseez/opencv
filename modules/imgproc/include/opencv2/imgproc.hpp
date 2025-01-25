@@ -284,7 +284,10 @@ enum InterpolationFlags{
 enum WarpPolarMode
 {
     WARP_POLAR_LINEAR = 0, ///< Remaps an image to/from polar space.
-    WARP_POLAR_LOG = 256   ///< Remaps an image to/from semilog-polar space.
+    WARP_POLAR_LOG = 256,  ///< Remaps an image to/from semilog-polar space.
+    WARP_POLAR_EXP = 128,  ///< Remaps an image to/from semiexp-polar space.
+    WARP_POLAR_SQRT = 64,  ///< Remaps an image to/from semisqrt-polar space.
+    WARP_POLAR_SQUARE = 32 ///< Remaps an image to/from semisquare-polar space.
 };
 
 enum InterpolationMasks {

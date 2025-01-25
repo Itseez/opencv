@@ -1714,7 +1714,36 @@ TEST(Imgproc_warpPolar, identity)
         double psnr = cv::PSNR(in(roi), src(roi));
         EXPECT_LE(25, psnr) << "iteration=" << ki;
     }
+    // test expPolar
+    src = in.clone();
+    for (int ki = 1; ki <= 5; ki++)
+    {
+        warpPolar(src, dst, src.size(),center, radius, flags + WARP_POLAR_EXP + cv::WARP_INVERSE_MAP );
+        warpPolar(dst, src, src.size(),center, radius, flags + WARP_POLAR_EXP);
 
+        double psnr = cv::PSNR(in(roi), src(roi));
+        EXPECT_LE(25, psnr) << "iteration=" << ki;
+    }
+    // test sqrtPolar
+    src = in.clone();
+    for (int ki = 1; ki <= 5; ki++)
+    {
+        warpPolar(src, dst, src.size(),center, radius, flags + WARP_POLAR_SQRT + cv::WARP_INVERSE_MAP );
+        warpPolar(dst, src, src.size(),center, radius, flags + WARP_POLAR_SQRT);
+
+        double psnr = cv::PSNR(in(roi), src(roi));
+        EXPECT_LE(25, psnr) << "iteration=" << ki;
+    }
+    // test squarePolar
+    src = in.clone();
+    for (int ki = 1; ki <= 5; ki++)
+    {
+        warpPolar(src, dst, src.size(),center, radius, flags + WARP_POLAR_SQUARE + cv::WARP_INVERSE_MAP );
+        warpPolar(dst, src, src.size(),center, radius, flags + WARP_POLAR_SQUARE);
+
+        double psnr = cv::PSNR(in(roi), src(roi));
+        EXPECT_LE(25, psnr) << "iteration=" << ki;
+    }
 #if 0
     Mat all(N*2+2,N*2+2, src.type(), Scalar(0,0,255));
     in.copyTo(all(Rect(0,0,N,N)));

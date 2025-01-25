@@ -3727,6 +3727,18 @@ cvConvertMaps( const CvArr* arr1, const CvArr* arr2, CvArr* dstarr1, CvArr* dsta
 
 /****************************************************************************************
 PkLab.net 2018 based on cv::linearPolar from OpenCV by J.L. Blanco, Apr 2009
+
+Enhancements and updates by Shuaikai Shi, 2024:
+- Introduced new radial non-uniform sampling methods.
+- Resolved edge information loss and omissions in cart2pol transformations,
+  improving accuracy for image boundaries.
+- Added the following macro definitions:
+  - WARP_POLAR_EXP: Enables exponential sampling along the radial direction.
+  - WARP_POLAR_SQRT: Supports radial square root sampling (similar to WARP_POLAR_LOG).
+  - WARP_POLAR_SQUARE: Performs radial square sampling, compensating for shrinking
+    sectors to preserve edge details.
+These updates extend the functionality of polar transformations,
+making them more robust and versatile for diverse image processing tasks.
 ****************************************************************************************/
 void cv::warpPolar(InputArray _src, OutputArray _dst, Size dsize,
                    Point2f center, double maxRadius, int flags)
@@ -3747,7 +3759,9 @@ void cv::warpPolar(InputArray _src, OutputArray _dst, Size dsize,
     mapx.create(dsize, CV_32F);
     mapy.create(dsize, CV_32F);
     bool semiLog = (flags & WARP_POLAR_LOG) != 0;
-
+    bool semiExp = (flags & WARP_POLAR_EXP) != 0;
+    bool semiSqrt = (flags & WARP_POLAR_SQRT) != 0;
+    bool semiSquare = (flags & WARP_POLAR_SQUARE) != 0;
     if (!(flags & cv::WARP_INVERSE_MAP))
     {
         CV_Assert(!dsize.empty());
@@ -3763,6 +3777,24 @@ void cv::warpPolar(InputArray _src, OutputArray _dst, Size dsize,
             for (rho = 0; rho < dsize.width; rho++)
                 bufRhos[rho] = (float)(std::exp(rho * Kmag) - 1.0);
 
+        }
+        else if (semiExp)
+        {
+            double Kmag = std::pow(1.01,maxRadius) / dsize.width;
+            for (rho = 0; rho < dsize.width; rho++)
+                bufRhos[rho] = (float)(std::log(rho * Kmag+1.0)/std::log( Kmag*dsize.width+1)*maxRadius);
+        }
+        else if (semiSqrt)
+        {
+            double Kmag = std::sqrt(maxRadius)/ dsize.width;
+            for (rho = 0; rho < dsize.width; rho++)
+                bufRhos[rho] = (float)(std::pow(rho * Kmag,2));
+        }
+        else if (semiSquare)
+        {
+            double Kmag =std::pow(maxRadius,2) / dsize.width;
+            for (rho = 0; rho < dsize.width; rho++)
+                bufRhos[rho] = (float)(std::sqrt(rho * Kmag));
         }
         else
         {
@@ -3802,6 +3834,12 @@ void cv::warpPolar(InputArray _src, OutputArray _dst, Size dsize,
         double Kmag;
         if (semiLog)
             Kmag = std::log(maxRadius) / ssize.width;
+        else if (semiExp)
+            Kmag = std::pow(1.01,maxRadius) / dsize.width;
+        else if (semiSqrt)
+            Kmag = std::sqrt(maxRadius)/ dsize.width;
+        else if (semiSquare)
+            Kmag = std::pow(maxRadius,2) / dsize.width;
         else
             Kmag = maxRadius / ssize.width;
 
@@ -3831,7 +3869,21 @@ void cv::warpPolar(InputArray _src, OutputArray _dst, Size dsize,
                 bufp += 1.f;
                 log(bufp, bufp);
             }
-
+            if (semiExp)
+            {
+                bufp=bufp/maxRadius;
+                bufp=bufp*std::log( Kmag*dsize.width+1);
+                exp(bufp,bufp);
+                bufp -= 1.f;
+            }
+            if (semiSqrt)
+            {
+                sqrt(bufp, bufp);
+            }
+            if (semiSquare)
+            {
+                cv::pow(bufp,2,bufp);
+            }
             for (x = 0; x < dsize.width; x++)
             {
                 double rho = bufp.at<float>(0, x) / Kmag;
