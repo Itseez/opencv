@@ -14,6 +14,12 @@ endif()
 #     \                               -> doxygen_python* ->        /
 #      ---------------------------------------------------------->
 
+if(NOT DEFINED ENABLE_ROBOFLOW_IFRAMES)
+  set(ENABLE_ROBOFLOW_IFRAMES ON)
+endif()
+
+option(ENABLE_ROBOFLOW_IFRAMES "Enable Roboflow iframes in documentation" ${ENABLE_ROBOFLOW_IFRAMES})
+
 find_package(Doxygen)
 if(DOXYGEN_FOUND)
   if (DOXYGEN_VERSION VERSION_LESS 1.12)
@@ -29,9 +35,14 @@ if(DOXYGEN_FOUND)
   unset(CMAKE_DOXYGEN_TUTORIAL_JS_ROOT)
 
   set(OPENCV_DOCS_EXCLUDE_CUDA ON)
+
   if(";${OPENCV_MODULES_EXTRA};" MATCHES ";cudev;")
     set(OPENCV_DOCS_EXCLUDE_CUDA OFF)
     list(APPEND CMAKE_DOXYGEN_ENABLED_SECTIONS "CUDA_MODULES")
+  endif()
+
+  if(ENABLE_ROBOFLOW_IFRAMES)
+    list(APPEND CMAKE_DOXYGEN_ENABLED_SECTIONS "ENABLE_ROBOFLOW_IFRAMES")
   endif()
 
   # gathering headers
