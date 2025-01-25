@@ -255,7 +255,7 @@ namespace {
 inline std::vector<const char*> getCharNames(const std::vector<std::string>& names) {
     std::vector<const char*> out_vec;
     for (const auto& el : names) {
-            out_vec.push_back(el.data());
+        out_vec.push_back(el.data());
     }
     return out_vec;
 }
@@ -446,29 +446,25 @@ void preprocess(const cv::MediaFrame::View& view,
 }
 
 template <typename T>
-inline Ort::Value createTensor(const Ort::MemoryInfo& memory_info,
-                               const cv::gimpl::onnx::TensorInfo& tensor_params,
-                               const cv::Mat& data) {
-    (void) tensor_params;
+inline Ort::Value createTensor(const cv::Mat& data) {
     auto ort_dims = toORT(data.size);
-    return Ort::Value::CreateTensor<T>(memory_info,
-                                       const_cast<T*>(data.ptr<T>()),
-                                       data.total(),
-                                       ort_dims.data(),
-                                       ort_dims.size());
+    Ort::AllocatorWithDefaultOptions allocator;
+    Ort::Value tensor = Ort::Value::CreateTensor<T>(allocator, ort_dims.data(), ort_dims.size());
+    T* tensor_data = tensor.GetTensorMutableData<T>();
+    std::copy_n(data.ptr<T>(), data.total(), tensor_data);
+    return tensor;
 }
 
-inline Ort::Value createTensor(const Ort::MemoryInfo& memory_info,
-                               const cv::gimpl::onnx::TensorInfo& tensor_params,
+inline Ort::Value createTensor(const cv::gimpl::onnx::TensorInfo& tensor_params,
                                const cv::Mat& data) {
     GAPI_Assert(data.isContinuous ());
     switch (tensor_params.type) {
     case ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8:
-        return createTensor<uint8_t>(memory_info, tensor_params, data);
+        return createTensor<uint8_t>(data);
     case ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT:
-        return createTensor<float>(memory_info, tensor_params, data);
+        return createTensor<float>(data);
     case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT32:
-        return createTensor<int32_t>(memory_info, tensor_params, data);
+        return createTensor<int32_t>(data);
     case ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64:{
         // cv::Mat does not support int64 data directly.
         // Following steps are applied to create an ONNX tensor from cv::Mat data:
@@ -919,15 +915,13 @@ void ONNXCompiled::Run(const std::vector<cv::Mat>& ins,
         auto i         = ade::util::index(it);
         auto in_name   = ade::util::value(it);
         const auto idx = getIdxByName(in_tensor_info, in_name);
-        in_tensors.emplace_back(createTensor(this_memory_info,
-                                             in_tensor_info[idx],
+        in_tensors.emplace_back(createTensor(in_tensor_info[idx],
                                              ins[i]));
     }
 
     for (auto &&c_in_pair : params.const_inputs) {
         const auto idx = getIdxByName(in_tensor_info, c_in_pair.first);
-        in_tensors.emplace_back(createTensor(this_memory_info,
-                                             in_tensor_info[idx],
+        in_tensors.emplace_back(createTensor(in_tensor_info[idx],
                                              c_in_pair.second.first));
         // Puts const input names in sequence for Run
         // ONNXRuntime can match input tensors to CNN inputs by names
@@ -940,8 +934,7 @@ void ONNXCompiled::Run(const std::vector<cv::Mat>& ins,
         // Easy path - just run the session which is bound to G-API's
         // internal data
         for (auto i : ade::util::iota(params.output_names.size())) {
-        out_tensors.emplace_back(createTensor(this_memory_info,
-                                              out_tensor_info[i],
+        out_tensors.emplace_back(createTensor(out_tensor_info[i],
                                               outs[i]));
         }
         auto out_run_names = getCharNames(params.output_names);
