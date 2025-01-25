@@ -1366,6 +1366,12 @@ static bool ocl_normalize( InputArray _src, InputOutputArray _dst, InputArray _m
 }  // ocl_normalize
 #endif  // HAVE_OPENCL
 
+
+inline static bool rounds_outside_interval(double smin, double smax, float scale_float, float shift_float, double dmin, double dmax)
+{
+    return smin * scale_float + shift_float < dmin || smax * scale_float + shift_float > dmax;
+}
+
 void normalize(InputArray _src, InputOutputArray _dst, double a, double b,
                int norm_type, int rtype, InputArray _mask)
 {
@@ -1385,8 +1391,20 @@ void normalize(InputArray _src, InputOutputArray _dst, double a, double b,
         scale = (dmax - dmin)*(smax - smin > DBL_EPSILON ? 1./(smax - smin) : 0);
         if( rtype == CV_32F )
         {
-            scale = (float)scale;
-            shift = (float)dmin - (float)(smin*scale);
+            // Cast to float and enforce conditions
+            float scale_float = static_cast<float>(scale);
+            float shift_float = (float)dmin - (float)(smin * scale);
+
+            // check if a rounding error will occur, we want the values to be in [dmin, dmax]
+            if (rounds_outside_interval(smin, smax, scale_float, shift_float, dmin, dmax)) {
+                while (rounds_outside_interval(smin, smax, scale_float, shift_float, dmin, dmax))
+                {
+                    scale_float = nextafterf(scale_float, -INFINITY);
+                    shift_float = (float)dmin - (float)(smin * scale_float);
+                }
+            }            
+            scale = scale_float;
+            shift = shift_float;
         }
         else
             shift = dmin - smin*scale;
@@ -1404,7 +1422,7 @@ void normalize(InputArray _src, InputOutputArray _dst, double a, double b,
                ocl_normalize(_src, _dst, _mask, rtype, scale, shift))
 
     Mat src = _src.getMat();
-    if( _mask.empty() )
+    if ( _mask.empty() )
         src.convertTo( _dst, rtype, scale, shift );
     else
     {

@@ -2216,6 +2216,19 @@ TEST(Normalize, regression_5876_inplace_change_type)
     EXPECT_EQ(0, cvtest::norm(m, result, NORM_INF));
 }
 
+TEST(Normalize, normalize_in_bounds)
+{
+    std::vector<float> initial_values = { 1888, 1692, 369, 263, 280, 326, 129, 12, 126, 233, 221, 130, 126, 150, 249, 12 };
+    Mat m(Size(16, 1), CV_32F, initial_values.data());
+    normalize(m, m, 0, 1, NORM_MINMAX);
+    float min = 0., max = 1;
+    for (int i = 0; i < initial_values.size(); i++)
+    {
+        EXPECT_GE(m.at<float>(0, i), min) << "Value should be >= 0";
+        EXPECT_LE(m.at<float>(0, i), max) << "Value should be <= 1";
+    }
+}
+
 TEST(Normalize, regression_6125)
 {
     float initial_values[] = {
