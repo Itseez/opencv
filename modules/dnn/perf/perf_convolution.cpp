@@ -937,6 +937,102 @@ PERF_TEST_P_(Conv_1x1, conv)
     SANITY_CHECK_NOTHING();
 }
 
+PERF_TEST_P_(Conv, convInt8)
+{
+    int test_id = (int)get<0>(GetParam());
+    ASSERT_GE(test_id, 0); ASSERT_LT(test_id, ConvParamID::CONV_LAST);
+    const ConvParam_t& params = testConvolutionConfigs[test_id];
+    double declared_flops = params.declared_flops;
+    Size kernel = params.kernel;
+    MatShape inputShape = MatShape(params.shapeIn.dims, params.shapeIn.dims + 4);
+    int outChannels = params.outCN;
+    int groups = params.groups;
+    Size stride = params.stride;
+    Size dilation = params.dilation;
+    Size pad = params.pad;
+    Size padAdjust = params.padAdjust;
+    std::string padMode(params.padMode);
+
+    Backend backendId = get<0>(get<1>(GetParam()));
+    Target targetId = get<1>(get<1>(GetParam()));
+
+    if (targetId != DNN_TARGET_CPU)
+        throw SkipTestException("Only CPU is supported");
+
+    int inChannels = inputShape[1];
+    Size inSize(inputShape[3], inputShape[2]);
+
+    int sz[] = {outChannels, inChannels / groups, kernel.height, kernel.width};
+    Mat weights(4, &sz[0], CV_8S);
+    randu(weights, -128, 127);
+
+    LayerParams lp;
+    lp.set("kernel_w", kernel.width);
+    lp.set("kernel_h", kernel.height);
+    lp.set("pad_w", pad.width);
+    lp.set("pad_h", pad.height);
+    if (padAdjust.width > 0 || padAdjust.height > 0)
+    {
+        lp.set("adj_w", padAdjust.width);
+        lp.set("adj_h", padAdjust.height);
+    }
+    if (!padMode.empty())
+        lp.set("pad_mode", padMode);
+    lp.set("stride_w", stride.width);
+    lp.set("stride_h", stride.height);
+    lp.set("dilation_w", dilation.width);
+    lp.set("dilation_h", dilation.height);
+    lp.set("num_output", outChannels);
+    lp.set("group", groups);
+    lp.set("input_zeropoint", 0);
+    lp.set("input_scale",1.f);
+    lp.set("zeropoints", 0);
+    lp.set("scales", 0.015f);
+    lp.set("depth", CV_8S);
+    lp.type = "ConvolutionInt8";
+    lp.name = "testLayer";
+    lp.blobs.push_back(weights);
+
+    // biasFused
+    Mat biasFused(1, outChannels, CV_32S);
+    randu(biasFused, -128, 127);
+    lp.blobs.push_back(biasFused);
+
+    // outputMultiplier
+    Mat outputMultiplier(1, outChannels, CV_32F);
+    randu(outputMultiplier, -10, 10);
+    lp.blobs.push_back(outputMultiplier);
+
+    int inpSz[] = {1, inChannels, inSize.height, inSize.width};
+    Mat input(4, &inpSz[0], CV_8S);
+    randu(input, int8_t(-128), int8_t(127));
+
+    Net net;
+    net.addLayerToPrev(lp.name, lp.type, CV_8S,lp);
+
+    net.setInput(input);
+    net.setPreferableBackend(backendId);
+    net.setPreferableTarget(targetId);
+
+    // warmup
+    Mat output = net.forward();
+
+    MatShape netInputShape = shape(input);
+    size_t weightsMemory = 0, blobsMemory = 0;
+    net.getMemoryConsumption(netInputShape, weightsMemory, blobsMemory);
+    int64 flops = net.getFLOPS(netInputShape);
+    CV_Assert(flops > 0);
+
+    std::cout
+            << "IN=" << divUp(input.total() * input.elemSize(), 1u<<10) << " Kb " << netInputShape
+            << "    OUT=" << divUp(output.total() * output.elemSize(), 1u<<10) << " Kb " << shape(output)
+            << "    Weights(parameters): " << divUp(weightsMemory, 1u<<10) << " Kb"
+            << "    MFLOPS=" << flops * 1e-6 << std::endl;
+  
+    EXPECT_NEAR(flops, declared_flops, declared_flops * 1e-6);
+    SANITY_CHECK_NOTHING();
+}
+
 PERF_TEST_P_(Conv_3x3S1D1, conv)
 {
     const ConvParam_t& params = get<0>(GetParam());
@@ -965,14 +1061,17 @@ PERF_TEST_P_(Conv_Depthwise, conv)
     Net net = build_net(params, backendId, targetId, std::function<void(Net&)>(),
         0/*flops_limit_debug_long*/, 0/*flops_limit_debug_verylong*/);
 
+
     TEST_CYCLE()
     {
         Mat res = net.forward();
     }
+
     SANITY_CHECK_NOTHING();
 }
 
 ConvParamGenerator conv_params(testConvolution_Configs, sizeof(testConvolution_Configs) / sizeof(testConvolution_Configs[0]));
+
 INSTANTIATE_TEST_CASE_P(/**/, Conv, Combine(
     conv_params.all(),
     dnnBackendsAndTargets(false, false)  // defined in ../test/test_common.hpp

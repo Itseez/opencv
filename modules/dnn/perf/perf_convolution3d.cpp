@@ -174,6 +174,97 @@ PERF_TEST_P_(Conv3D, conv3d)
     SANITY_CHECK_NOTHING();
 }
 
+PERF_TEST_P_(Conv3D, conv3dInt8)
+{
+    int test_id = (int)get<0>(GetParam());
+    ASSERT_GE(test_id, 0); ASSERT_LT(test_id, Conv3DParamID::CONV_LAST);
+    const Conv3DParam_t& params = testConvolution3DConfigs[test_id];
+    double declared_flops = params.declared_flops;
+
+    DictValue kernel   = DictValue::arrayInt(&params.kernel[0], 3);
+    DictValue stride   = DictValue::arrayInt(&params.stride[0], 3);
+    DictValue pad      = DictValue::arrayInt(&params.pad[0], 6);
+    DictValue dilation = DictValue::arrayInt(&params.dilation[0], 3);
+
+    MatShape inputShape = MatShape(params.shapeIn.dims, params.shapeIn.dims + 5);
+    int outChannels = params.outCN;
+    int groups = params.groups;
+    std::string padMode(params.padMode);
+
+    Backend backendId = get<0>(get<1>(GetParam()));
+    Target targetId = get<1>(get<1>(GetParam()));
+
+    if (targetId != DNN_TARGET_CPU)
+        throw SkipTestException("Only CPU is supported");
+
+    int inChannels = inputShape[1];
+
+    int sz[] = {outChannels, inChannels / groups, params.kernel[0], params.kernel[1], params.kernel[2]};
+    Mat weights(5, &sz[0], CV_8S);
+    randu(weights, -128, 127);
+
+    LayerParams lp;
+    lp.set("kernel_size", kernel);
+    lp.set("pad", pad);
+    if (!padMode.empty())
+        lp.set("pad_mode", padMode);
+
+    lp.set("stride", stride);
+    lp.set("dilation", dilation);
+    lp.set("num_output", outChannels);
+    lp.set("group", groups);
+    lp.set("input_zeropoint", 0);
+    lp.set("input_scale",1.f);
+    lp.set("zeropoints", 0);
+    lp.set("scales", 0.015f);
+    lp.set("depth", CV_8S);
+    lp.type = "ConvolutionInt8";
+    lp.name = "testLayer";
+    lp.blobs.push_back(weights);
+
+    // biasFused
+    Mat biasFused(1, outChannels, CV_32S);
+    randu(biasFused, -128, 127);
+    lp.blobs.push_back(biasFused);
+
+    // outputMultiplier
+    Mat outputMultiplier(1, outChannels, CV_32F);
+    randu(outputMultiplier, -10, 10);
+    lp.blobs.push_back(outputMultiplier);
+
+    int inpSz[] = {1, inChannels, inputShape[2], inputShape[3], inputShape[4]};
+    Mat input(5, &inpSz[0], CV_8S);
+    randu(input, int8_t(-128), int8_t(127));
+
+    Net net;
+    net.addLayerToPrev(lp.name, lp.type, CV_8S,lp);
+
+    net.setInput(input);
+    net.setPreferableBackend(backendId);
+    net.setPreferableTarget(targetId);
+
+    Mat output = net.forward();
+
+    MatShape netInputShape = shape(input);
+    size_t weightsMemory = 0, blobsMemory = 0;
+    net.getMemoryConsumption(netInputShape, weightsMemory, blobsMemory);
+    int64 flops = net.getFLOPS(netInputShape);
+    CV_Assert(flops > 0);
+
+    std::cout
+            << "IN=" << divUp(input.total() * input.elemSize(), 1u<<10) << " Kb " << netInputShape
+            << "    OUT=" << divUp(output.total() * output.elemSize(), 1u<<10) << " Kb " << shape(output)
+            << "    Weights(parameters): " << divUp(weightsMemory, 1u<<10) << " Kb"
+            << "    MFLOPS=" << flops * 1e-6 << std::endl;
+
+    TEST_CYCLE()
+    {
+        Mat res = net.forward();
+    }
+    EXPECT_NEAR(flops, declared_flops, declared_flops * 1e-6);
+    SANITY_CHECK_NOTHING();
+}
+
 INSTANTIATE_TEST_CASE_P(/**/, Conv3D, Combine(
     Conv3DParamID::all(),
     dnnBackendsAndTargets(false, false)  // defined in ../test/test_common.hpp

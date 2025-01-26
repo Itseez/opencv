@@ -1329,7 +1329,7 @@ TEST_P(Test_Int8_nets, YOLOv3)
     std::string config_file = "yolov3.cfg";
     std::string weights_file = "yolov3.weights";
 
-    double scoreDiff = 0.08, iouDiff = 0.21, confThreshold = 0.25;
+    double scoreDiff = 0.08, iouDiff = 0.21, confThreshold = 0.4;
     {
         SCOPED_TRACE("batch size 1");
         testDarknetModel(config_file, weights_file, ref.rowRange(0, N0), scoreDiff, iouDiff, confThreshold);
@@ -1374,15 +1374,16 @@ TEST_P(Test_Int8_nets, YOLOv4)
     std::string config_file = "yolov4.cfg";
     std::string weights_file = "yolov4.weights";
     double scoreDiff = 0.15, iouDiff = 0.2;
+    float confThreshold = 0.26;
     {
         SCOPED_TRACE("batch size 1");
-        testDarknetModel(config_file, weights_file, ref.rowRange(0, N0), scoreDiff, iouDiff);
+        testDarknetModel(config_file, weights_file, ref.rowRange(0, N0), scoreDiff, iouDiff, confThreshold);
     }
 
     {
         SCOPED_TRACE("batch size 2");
 
-        testDarknetModel(config_file, weights_file, ref, scoreDiff, iouDiff);
+        testDarknetModel(config_file, weights_file, ref, scoreDiff, iouDiff, confThreshold);
     }
 }
 

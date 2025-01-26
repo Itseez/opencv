@@ -1427,6 +1427,8 @@ void Net::Impl::setInput(InputArray blob, const String& name, double scalefactor
 
     LayerData& ld = layers[pin.lid];
     const int numInputs = std::max(pin.oid + 1, (int)ld.requiredOutputs.size());
+    if (blob_.type() == CV_8S)
+        ld.dtype = blob_.type();
     ld.outputBlobs.resize(numInputs);
     ld.outputBlobsWrappers.resize(numInputs);
     netInputLayer->inputsData.resize(numInputs);
