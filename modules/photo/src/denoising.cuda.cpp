@@ -83,14 +83,16 @@ void cv::cuda::nonLocalMeans(InputArray _src, OutputArray _dst, float h, int sea
     using cv::cuda::device::imgproc::nlm_bruteforce_gpu;
     typedef void (*func_t)(const PtrStepSzb& src, PtrStepSzb dst, int search_radius, int block_radius, float h, int borderMode, cudaStream_t stream);
 
-    static const func_t funcs[4] = { nlm_bruteforce_gpu<uchar>, nlm_bruteforce_gpu<uchar2>, nlm_bruteforce_gpu<uchar3>, 0/*nlm_bruteforce_gpu<uchar4>,*/ };
+    static const func_t funcs[] = {nlm_bruteforce_gpu<uchar>, nlm_bruteforce_gpu<uchar2>, nlm_bruteforce_gpu<uchar3>,
+                                    nullptr/*nlm_bruteforce_gpu<uchar4>,*/, nlm_bruteforce_gpu<ushort>};
 
     const GpuMat src = _src.getGpuMat();
 
-    CV_Assert(src.type() == CV_8U || src.type() == CV_8UC2 || src.type() == CV_8UC3);
+    CV_Assert(src.type() == CV_8U || src.type() == CV_8UC2 || src.type() == CV_8UC3 || src.type() == CV_16UC1);
 
-    const func_t func = funcs[src.channels() - 1];
-    CV_Assert(func != 0);
+    int func_idx = src.type() == CV_16U ? 4 : src.channels() - 1;
+    const func_t func = funcs[func_idx];
+    CV_Assert(func);
 
     int b = borderMode;
     CV_Assert(b == BORDER_REFLECT101 || b == BORDER_REPLICATE || b == BORDER_CONSTANT || b == BORDER_REFLECT || b == BORDER_WRAP);
@@ -120,7 +122,7 @@ void cv::cuda::fastNlMeansDenoising(InputArray _src, OutputArray _dst, float h, 
 {
     const GpuMat src = _src.getGpuMat();
 
-    CV_Assert(src.depth() == CV_8U && src.channels() < 4);
+    CV_Assert((src.depth() == CV_8U && src.channels() < 4) || (src.depth() == CV_16U && src.channels() == 1));
 
     int border_size = search_window/2 + block_window/2;
     Size esize = src.size() + Size(border_size, border_size) * 2;
@@ -137,12 +139,14 @@ void cv::cuda::fastNlMeansDenoising(InputArray _src, OutputArray _dst, float h, 
 
     using namespace cv::cuda::device::imgproc;
     typedef void (*nlm_fast_t)(const PtrStepSzb&, PtrStepSzb, PtrStepi, int, int, float, cudaStream_t);
-    static const nlm_fast_t funcs[] = { nlm_fast_gpu<uchar>, nlm_fast_gpu<uchar2>, nlm_fast_gpu<uchar3>, 0};
+    static const nlm_fast_t funcs[] = {nlm_fast_gpu<uchar>, nlm_fast_gpu<uchar2>, nlm_fast_gpu<uchar3>,
+                                       nullptr/*nlm_fast_gpu<uchar4>,*/, nlm_fast_gpu<ushort>};
 
     _dst.create(src.size(), src.type());
     GpuMat dst = _dst.getGpuMat();
 
-    funcs[src.channels()-1](src_hdr, dst, buffer, search_window, block_window, h, StreamAccessor::getStream(stream));
+    int func_idx = src.type() == CV_16U ? 4 : src.channels() - 1;
+    funcs[func_idx](src_hdr, dst, buffer, search_window, block_window, h, StreamAccessor::getStream(stream));
 }
 
 void cv::cuda::fastNlMeansDenoisingColored(InputArray _src, OutputArray _dst, float h_luminance, float h_color, int search_window, int block_window, Stream& stream)

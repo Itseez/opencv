@@ -52,7 +52,7 @@ namespace cv { namespace cuda {
 
 /** @brief Performs pure non local means denoising without any simplification, and thus it is not fast.
 
-@param src Source image. Supports only CV_8UC1, CV_8UC2 and CV_8UC3.
+@param src Source image. Supports only CV_8UC1, CV_8UC2, CV_8UC3, and CV_16UC1
 @param dst Destination image.
 @param h Filter sigma regulating filter strength for color.
 @param search_window Size of search window.
@@ -84,7 +84,7 @@ CV_WRAP inline void nonLocalMeans(const GpuMat& src, CV_OUT GpuMat& dst,
 <http://www.ipol.im/pub/algo/bcm_non_local_means_denoising> with several computational
 optimizations. Noise expected to be a gaussian white noise
 
-@param src Input 8-bit 1-channel, 2-channel or 3-channel image.
+@param src Input 8-bit (1-channel, 2-channel or 3-channel image) or 16-bit 1-channel.
 @param dst Output image with the same size and type as src .
 @param h Parameter regulating filter strength. Big h value perfectly removes noise but also
 removes image details, smaller h value preserves details but also preserves some noise

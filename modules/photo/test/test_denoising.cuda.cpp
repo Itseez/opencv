@@ -116,5 +116,36 @@ TEST(CUDA_FastNonLocalMeans, Regression)
     EXPECT_MAT_NEAR(gray_gold, dgray, 1);
 }
 
+////////////////////////////////////////////////////////
+// nonLocalMeans and fastNlMeansDenoising for CV_16UC1
+
+TEST(CUDA_NonLocalMeans_16UC1, Regression)
+{
+    cv::Mat gray16 = readImage("../gpu/denoising/lena_noised_gaussian_sigma=20_multi_0_16_bit.png", cv::IMREAD_UNCHANGED);
+    ASSERT_TRUE(!gray16.empty() && gray16.type() == CV_16UC1);
+    GpuMat dgray16;
+
+    // check nonLocalMeans ---------------------------------------------------------------------------------------------
+    cv::Mat gray16_small;
+    cv::resize(gray16, gray16_small, cv::Size(256, 256));
+
+    cv::cuda::nonLocalMeans(GpuMat(gray16_small), dgray16, 5000);
+#if 0
+    dumpImage("../gpu/denoising/nlm_denoised_lena_gray16.png", cv::Mat(dgray16));
+#endif
+    cv::Mat gray16_gold = readImage("../gpu/denoising/nlm_denoised_lena_gray16.png", cv::IMREAD_UNCHANGED);
+    EXPECT_MAT_NEAR(gray16_gold, dgray16, 1);
+
+    // check fastNlMeansDenoising --------------------------------------------------------------------------------------
+
+    cv::cuda::fastNlMeansDenoising(GpuMat(gray16), dgray16, 40);
+#if 0
+    dumpImage("../gpu/denoising/fnlm_denoised_lena_gray16.png", cv::Mat(dgray16));
+#endif
+    gray16_gold = readImage("../gpu/denoising/fnlm_denoised_lena_gray16.png", cv::IMREAD_UNCHANGED);
+    EXPECT_MAT_NEAR(gray16_gold, dgray16, 1);
+}
+
+
 }} // namespace
 #endif // HAVE_CUDA
