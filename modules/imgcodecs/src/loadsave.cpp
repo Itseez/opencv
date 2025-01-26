@@ -943,13 +943,38 @@ static bool imwriteanimation_(const String& filename, const Animation& animation
     ImageEncoder encoder = findEncoder(filename);
     if (!encoder)
         CV_Error(Error::StsError, "could not find a writer for the specified extension");
+    Animation tempAnim;
+    tempAnim.loop_count = animation.loop_count;
+    tempAnim.bgcolor = animation.bgcolor;
+    tempAnim.frames.reserve(animation.frames.size());
+    tempAnim.durations.reserve(animation.frames.size());
 
+    for (size_t i = 0; i < animation.frames.size(); i++)
+    {
+        const Mat &inFrame = animation.frames[i];
+        CV_Assert(!inFrame.empty());
+        CV_Assert(inFrame.channels() == 1 || inFrame.channels() == 3 || inFrame.channels() == 4);
+
+        if (!encoder->isFormatSupported(inFrame.depth()))
+        {
+            CV_LOG_ONCE_WARNING(NULL,
+                                "imwriteanimation_ Unsupported depth image for selected encoder is fallbacked to CV_8U.");
+            Mat converted;
+            inFrame.convertTo(converted, CV_8U);
+            tempAnim.frames.push_back(converted);
+        }
+        else
+        {
+            tempAnim.frames.push_back(inFrame);
+        }
+        tempAnim.durations.push_back(animation.durations[i]);
+    }
     encoder->setDestination(filename);
 
     bool code = false;
     try
     {
-        code = encoder->writeanimation(animation, params);
+        code = encoder->writeanimation(tempAnim, params);
 
         if (!code)
         {
