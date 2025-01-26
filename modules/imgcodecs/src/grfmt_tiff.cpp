@@ -143,7 +143,7 @@ bool TiffDecoder::checkSignature( const String& signature ) const
 
 int TiffDecoder::normalizeChannelsNumber(int channels) const
 {
-    CV_Check(channels, channels >= 1 && channels <= 4, "Unsupported number of channels");
+    CV_Check(channels, channels >= 1 && channels <= 5, "Unsupported number of channels");
     return channels;
 }
 
@@ -651,7 +651,7 @@ bool  TiffDecoder::readData( Mat& img )
             CV_Assert((int)tile_width0 > 0 && (int)tile_width0 <= TILE_MAX_WIDTH);
             CV_Assert((int)tile_height0 > 0 && (int)tile_height0 <= TILE_MAX_HEIGHT);
             const uint64_t MAX_TILE_SIZE = (CV_BIG_UINT(1) << 30);
-            CV_CheckLE((int)ncn, 4, "");
+            CV_CheckLE((int)ncn, 5, "");
             CV_CheckLE((int)bpp, 64, "");
 
             if (dst_bpp == 8)
