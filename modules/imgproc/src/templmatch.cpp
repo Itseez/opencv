@@ -850,7 +850,8 @@ static void matchTemplateMask( InputArray _img, InputArray _templ, OutputArray _
 
         // CCorr(I', T') = CCorr(I, T'*M) - sum(T'*M)/sum(M)*CCorr(I, M)
         // It does not matter what to use Mat/MatExpr, it should be evaluated to perform assign subtraction
-        Mat temp_res = img_mask_corr.mul(sum(templx_mask).div(mask_sum));
+        Mat temp_res;
+        multiply(img_mask_corr, sum(templx_mask).div(mask_sum), temp_res);
         if (img.channels() == 1)
         {
             result -= temp_res;
@@ -881,8 +882,11 @@ static void matchTemplateMask( InputArray _img, InputArray _templ, OutputArray _
             Mat img_mask2_corr(corrSize, img.type());
             crossCorr(img2, mask2, norm_imgx, Point(0,0), 0, 0);
             crossCorr(img, mask2, img_mask2_corr, Point(0,0), 0, 0);
-            temp_res = img_mask_corr.mul(Scalar(1.0, 1.0, 1.0, 1.0).div(mask_sum))
-                           .mul(img_mask_corr.mul(mask2_sum.div(mask_sum)) - 2 * img_mask2_corr);
+            Mat temp_res1;
+            multiply(img_mask_corr, Scalar(1.0, 1.0, 1.0, 1.0).div(mask_sum), temp_res1);
+            Mat temp_res2;
+            multiply(img_mask_corr, mask2_sum.div(mask_sum), temp_res2);
+            temp_res = temp_res1.mul(temp_res2 - 2 * img_mask2_corr);
             if (img.channels() == 1)
             {
                 norm_imgx += temp_res;

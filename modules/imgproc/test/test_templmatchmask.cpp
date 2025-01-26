@@ -275,4 +275,16 @@ INSTANTIATE_TEST_CASE_P(MultiChannelMask, Imgproc_MatchTemplateWithMask2,
         Values(cv::TM_SQDIFF, cv::TM_SQDIFF_NORMED, cv::TM_CCORR, cv::TM_CCORR_NORMED,
                cv::TM_CCOEFF, cv::TM_CCOEFF_NORMED)));
 
+TEST(Imgproc_MatchTemplateWithMask, bug_26389) {
+    const Mat image = Mat::ones(Size(10, 10), CV_8UC1);
+    const Mat templ = Mat::ones(Size(10, 7), CV_8UC1);
+    const Mat mask = Mat::ones(Size(10, 7), CV_8UC1);
+
+    for (const int method : {TM_CCOEFF, TM_CCOEFF_NORMED})
+    {
+        Mat result;
+        matchTemplate(image, templ, result, method, mask);
+    }
+}
+
 }} // namespace
