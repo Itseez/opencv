@@ -943,29 +943,39 @@ static bool imwriteanimation_(const String& filename, const Animation& animation
     ImageEncoder encoder = findEncoder(filename);
     if (!encoder)
         CV_Error(Error::StsError, "could not find a writer for the specified extension");
+
+    // create a temporary animation object to store converted frames
     Animation tempAnim;
     tempAnim.loop_count = animation.loop_count;
     tempAnim.bgcolor = animation.bgcolor;
     tempAnim.frames.reserve(animation.frames.size());
     tempAnim.durations.reserve(animation.frames.size());
 
+    // process each frame in the input animation
     for (size_t i = 0; i < animation.frames.size(); i++)
     {
         const Mat &inFrame = animation.frames[i];
         CV_Assert(!inFrame.empty());
         CV_Assert(inFrame.channels() == 1 || inFrame.channels() == 3 || inFrame.channels() == 4);
 
-        if (!encoder->isFormatSupported(inFrame.depth()))
+        // keep frame as-is if the encoder supports its depth
+        if (encoder->isFormatSupported(inFrame.depth()))
         {
-            CV_LOG_ONCE_WARNING(NULL,
-                                "imwriteanimation_ Unsupported depth image for selected encoder is fallbacked to CV_8U.");
-            Mat converted;
-            inFrame.convertTo(converted, CV_8U);
-            tempAnim.frames.push_back(converted);
+            tempAnim.frames.push_back(inFrame);
+        }
+        // use 16-bit depth if supported by the encoder
+        else if (inFrame.depth() == CV_16U && encoder->isFormatSupported(CV_16U))
+        {
+            tempAnim.frames.push_back(inFrame);
         }
         else
         {
-            tempAnim.frames.push_back(inFrame);
+            // fallback to 8-bit depth if unsupported
+            CV_LOG_ONCE_WARNING(NULL,
+                "imwriteanimation_: Unsupported depth for this encoder, fallback to CV_8U");
+            Mat converted;
+            inFrame.convertTo(converted, CV_8U);
+            tempAnim.frames.push_back(converted);
         }
         tempAnim.durations.push_back(animation.durations[i]);
     }
