@@ -143,7 +143,8 @@ template <typename _Tp> std::ostream& operator<<(std::ostream&, const DualQuat<_
  *
  */
 template <typename _Tp>
-class CV_EXPORTS DualQuat{
+class DualQuat
+{
     static_assert(std::is_floating_point<_Tp>::value, "Dual quaternion only make sense with type of float or double");
     using value_type = _Tp;
 
