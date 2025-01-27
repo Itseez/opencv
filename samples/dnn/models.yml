@@ -441,3 +441,22 @@ dasiamrpn:
     dasiamrpn_kernel_cls_sha1: "e9ccd270ce8059bdf7ed0d1845c03ef4a951ee0f"
   dasiamrpn_kernel_cls_model: "object_tracking_dasiamrpn_kernel_cls1_2021nov.onnx"
   sample: "object_tracker"
+
+################################################################################
+# Inpainting models.
+################################################################################
+
+ldm_inpainting:
+  encoder_load_info:
+    encoder_url: "https://dl.opencv.org/models/ldm_inpainting/InpaintEncoder.onnx"
+    encoder_sha1: "eb663262304473d81d6ae627d7117892dac56b5e"
+  encoder_model: "InpaintEncoder.onnx"
+  decoder_load_info:
+    decoder_url: "https://dl.opencv.org/models/ldm_inpainting/InpaintDecoder.onnx"
+    decoder_sha1: "af258c100e3a3b0970493b6375c8775beaffc9d1"
+  decoder_model: "InpaintDecoder.onnx"
+  diffusor_load_info:
+    diffusor_url: "https://dl.opencv.org/models/ldm_inpainting/LatentDiffusion.onnx"
+    diffusor_sha1: "2c6f8a505d9a93195510c854d8f023fab27ce70e"
+  diffusor_model: "LatentDiffusion.onnx"
+  sample: "ldm_inpainting"

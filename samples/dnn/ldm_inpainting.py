@@ -4,6 +4,9 @@ import argparse
 from tqdm import tqdm
 from functools import partial
 from copy import deepcopy
+from download_models import downloadFile, getSaveDir
+import yaml
+import os
 
 ## let use write description of the script and general information how to use it
 
@@ -33,7 +36,7 @@ Steps for running the script:
 3. Run the script
 
     - cd opencv/samples/dnn
-    - python ldm_inpainting.py -e=<path-to-InpaintEncoder.onnx file> -d=<path-to-InpaintDecoder.onnx file> -df=<path-to-LatenDiffusion.onnx file> -i=<path-to-image>
+    - python ldm_inpainting -e=<path-to-InpaintEncoder.onnx file> -d=<path-to-InpaintDecoder.onnx file> -df=<path-to-LatenDiffusion.onnx file> -i=<path-to-image>
 
 Right after the last command you will be promted with image. You can click on left mouse botton and starting selection a region you would like to be inpainted (delited).
 Once you finish marking the region, click on left mouse botton again and press esc botton on your keyboard. The inpainting proccess will start.
@@ -66,6 +69,7 @@ parser.add_argument('--target', choices=targets, default=cv.dnn.DNN_TARGET_CPU, 
                          '%d: NCS2 VPU, '
                          '%d: HDDL VPU, '
                          '%d: CUDA ' % targets)
+parser.add_argument('--mask', '-m', type=str, help='Path to mask image. If not provided, interactive mask creation will be used.', default=None)
 
 def make_batch(image, mask):
     image = image.astype(np.float32)/255.0
@@ -300,9 +304,45 @@ class DDIMInpainter(object):
         self.conditioning_key = conditioning_key
         self.register_schedule(linear_start=linear_start, linear_end=linear_end)
 
-        self.encoder = cv.dnn.readNet(args.encoder)
-        self.decoder = cv.dnn.readNet(args.decoder)
-        self.diffusor = cv.dnn.readNet(args.diffusor)
+        # Load model configurations from YAML
+        config_file = 'models.yml'
+        save_dir = getSaveDir()
+        models_info = yaml.safe_load(open(config_file, 'r'))
+        ldm_config = models_info.get('ldm_inpainting', {})
+
+        # Initialize models using provided paths or download if necessary
+        encoder_path = args.encoder
+        decoder_path = args.decoder
+        diffusor_path = args.diffusor
+
+        if not encoder_path and ldm_config.get('encoder_load_info'):
+            encoder_path = os.path.join(save_dir, ldm_config['encoder_model'])
+            if not os.path.exists(encoder_path):
+                print(f"Could not find {ldm_config['encoder_model']} model graph at {args.encoder}. Downloading...")
+                downloadFile(ldm_config['encoder_load_info']['url'],
+                        sha=ldm_config['encoder_load_info']['sha1'],
+                        save_dir=save_dir)
+
+        if not decoder_path and ldm_config.get('decoder_load_info'):
+            decoder_path = os.path.join(save_dir, ldm_config['decoder_model'])
+            if not os.path.exists(decoder_path):
+                print(f"Could not find {ldm_config['decoder_model']} model graph at {args.decoder}. Downloading...")
+                downloadFile(ldm_config['decoder_load_info']['url'],
+                           sha=ldm_config['decoder_load_info']['sha1'],
+                           save_dir=save_dir)
+
+        if not diffusor_path and ldm_config.get('diffusor_load_info'):
+            diffusor_path = os.path.join(save_dir, ldm_config['diffusor_model'])
+            if not os.path.exists(diffusor_path):
+                print(f"Could not find {ldm_config['diffusor_model']} model graph at {args.diffusor}. Downloading...")
+                downloadFile(ldm_config['diffusor_load_info']['url'],
+                           sha=ldm_config['diffusor_load_info']['sha1'],
+                           save_dir=save_dir)
+
+        # Initialize models
+        self.encoder = cv.dnn.readNet(encoder_path)
+        self.decoder = cv.dnn.readNet(decoder_path)
+        self.diffusor = cv.dnn.readNet(diffusor_path)
         self.sampler = DDIMSampler(self, ddpm_num_timesteps=self.num_timesteps)
         self.set_backend(backend=args.backend, target=args.target)
 
@@ -321,7 +361,7 @@ class DDIMInpainter(object):
         x = np.concatenate([x, cond], axis=1)
         x = cv.Mat(x.astype(np.float32))
         timestep = cv.Mat(timestep.astype(np.int64))
-        names = ["xc", "t"]
+        names = ["xc, t", "timesteps"]
         self.diffusor.setInputsNames(names)
         self.diffusor.setInput(x, names[0])
         self.diffusor.setInput(timestep, names[1])
@@ -403,6 +443,10 @@ class DDIMInpainter(object):
         else:
             return x_recon
 
+    def inpaint(self, image : np.ndarray, mask : np.ndarray, S : int = 50) -> np.ndarray:
+        inpainted = self(image, mask, S)
+        return np.squeeze(inpainted)
+
     def __call__(self, image : np.ndarray, mask : np.ndarray, S : int = 50) -> np.ndarray:
 
         # Encode the image and mask
@@ -457,32 +501,55 @@ def create_mask(img, radius=20):
                 cv.circle(mask, (x, y), radius, 255, -1)
 
     mask = np.zeros((img.shape[0], img.shape[1]), np.uint8)
-    cv.namedWindow('image')
-    cv.setMouseCallback('image', draw_circle)
+
+    # Create window with instructions
+    window_name = 'image - Controls: Left click to start/stop drawing, ESC to finish'
+    cv.namedWindow(window_name)
+    cv.setMouseCallback(window_name, draw_circle)
+
     while True:
-        cv.imshow('image', img)
+        # Create a copy of the image to show instructions
+        display_img = img.copy()
+        if not drawing:
+            cv.putText(display_img, 'Click to start drawing', (10, 30),
+                      cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+        else:
+            cv.putText(display_img, 'Click to stop drawing', (10, 30),
+                      cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        cv.putText(display_img, 'Press ESC when finished', (10, 60),
+                  cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+
+        cv.imshow(window_name, display_img)
         if cv.waitKey(1) & 0xFF == 27:  # Press 'ESC' to exit
             break
 
     cv.destroyAllWindows()
     return mask
 
+def prepare_input(args):
+    image = cv.imread(args.image)
+    if args.mask:
+        mask = cv.imread(args.mask, cv.IMREAD_GRAYSCALE)
+        if mask is None:
+            raise ValueError(f"Could not read mask file: {args.mask}")
+        if mask.shape[:2] != image.shape[:2]:
+            mask = cv.resize(mask, (image.shape[1], image.shape[0]), interpolation=cv.INTER_NEAREST)
+    else:
+        mask = create_mask(deepcopy(image))
+
+    image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
+    batch = make_batch(image, mask)
+    return batch
 
 def main(args):
 
-    image = cv.imread(args.image)
-    mask = create_mask(deepcopy(image))
-    image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
-
-    batch = make_batch(image, mask)
-    image, mask, masked_image = batch["image"], batch["mask"], batch["masked_image"]
+    batch = prepare_input(args)
 
     model = DDIMInpainter(args)
-    result = model(masked_image, mask, S=args.samples)
-    result = np.squeeze(result)
-    # save the result in the directore of args.image
-    cv.imwrite(args.image.replace(".png", "_inpainted.png"), result[..., ::-1])
+    result = model.inpaint(batch["masked_image"], batch["mask"], S=args.samples)
 
+    ext = args.image.split('.')[-1]
+    cv.imwrite(args.image.replace(f".{ext}", f"_inpainted.{ext}"), result[..., ::-1])
 
 if __name__ == '__main__':
     args = parser.parse_args()
