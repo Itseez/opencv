@@ -278,6 +278,27 @@ private:
     int type_;
 };
 
+class CV_EXPORTS VertexArray
+{
+public:
+    VertexArray();
+
+    VertexArray(unsigned int vertexArrayId, bool autoRelease = false);
+
+    void bind() const;
+
+    static void unbind();
+
+    void setAutoRelease(bool flag);
+
+    void vertexAttribPointer(InputArray arr, unsigned int index, int size, int stride, int offset) const;
+
+    class Impl;
+
+private:
+    Ptr<Impl> impl_;
+};
+
 /** @brief Smart pointer for OpenGL 2D texture memory with reference counting.
  */
 class CV_EXPORTS Texture2D
@@ -472,6 +493,41 @@ private:
     Buffer texCoord_;
 };
 
+
+/** @brief Wrapper for OpenGL 3.2 Program object
+ */
+class CV_EXPORTS Program{
+public:
+    /** @brief Default constructor
+     */
+    Program();
+
+    /** @brief Attach fragment and vertex shaders
+    */
+    void attachShaders(const std::string& fragment_shader_source, const std::string& vertex_shader_source);
+
+    /** @brief Get the location of a specific uniform variable within a program object
+    */
+    int getUniformLocation(const std::string& name);
+
+    /** @brief Get default fragment shader
+    */
+    static std::string getDefaultFragmentShader();
+
+    /** @brief Get default vertex shader
+    */
+    static std::string getDefaultVertexShader();
+
+    /** @brief Get the current program object
+    */
+    unsigned int getProgramId();
+
+private:
+    unsigned int program_;
+
+};
+
+
 /////////////////// Render Functions ///////////////////
 
 //! render mode
@@ -511,6 +567,10 @@ CV_EXPORTS void render(const Arrays& arr, int mode = POINTS, Scalar color = Scal
 @param color Color for all vertices. Will be used if arr doesn't contain color array.
 */
 CV_EXPORTS void render(const Arrays& arr, InputArray indices, int mode = POINTS, Scalar color = Scalar::all(255));
+
+/////////////////// Export to Graphic device ///////////////////
+
+CV_EXPORTS void uniformMatrix4fv(int location, int count, float* value);
 
 /////////////////// CL-GL Interoperability Functions ///////////////////
 

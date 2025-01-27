@@ -825,6 +825,168 @@ unsigned int cv::ogl::Buffer::bufId() const
 #endif
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////
+// ogl::VertexArray
+#ifndef HAVE_OPENGL
+
+class cv::ogl::VertexArray::Impl
+{
+};
+
+#else
+
+class cv::ogl::VertexArray::Impl
+{
+public:
+    static const Ptr<Impl> empty();
+
+    Impl(GLuint vertexArrayId, bool autoRelease);
+    ~Impl();
+
+    void bind() const;
+
+    void setAutoRelease(bool flag) { autoRelease_ = flag; }
+
+    GLuint vertexArrayId() const { return vertexArrayId_; }
+
+    void vertexAttribPointer(InputArray arr, GLuint index, GLint size, GLint stride, int offset) const;
+
+private:
+    Impl();
+
+    GLuint vertexArrayId_;
+    bool autoRelease_;
+};
+
+const Ptr<cv::ogl::VertexArray::Impl> cv::ogl::VertexArray::Impl::empty()
+{
+    static Ptr<Impl> p(new Impl);
+    return p;
+}
+
+cv::ogl::VertexArray::Impl::Impl() : vertexArrayId_(0), autoRelease_(false)
+{
+}
+
+cv::ogl::VertexArray::Impl::Impl(GLuint vertexArrayId, bool autoRelease) : vertexArrayId_(vertexArrayId), autoRelease_(autoRelease)
+{
+    gl::GenVertexArrays(1, &vertexArrayId_);
+    CV_CheckGlError();
+
+    CV_Assert(vertexArrayId_ != 0);
+
+    gl::BindVertexArray(vertexArrayId_);
+    CV_CheckGlError();
+
+    gl::BindVertexArray(0);
+    CV_CheckGlError();
+}
+
+cv::ogl::VertexArray::Impl::~Impl()
+{
+    if (autoRelease_ && vertexArrayId_)
+        gl::DeleteVertexArrays(1, &vertexArrayId_);
+}
+
+void cv::ogl::VertexArray::Impl::bind() const
+{
+    gl::BindVertexArray(vertexArrayId_);
+    CV_CheckGlError();
+}
+
+void cv::ogl::VertexArray::Impl::vertexAttribPointer(InputArray arr, GLuint index, GLint size, GLint stride, int offset) const
+{
+    const int atype = arr.type();
+    const int depth = CV_MAT_DEPTH(atype);
+
+    CV_Assert( depth == CV_8S || depth == CV_8U || depth == CV_16S || depth == CV_16U || depth == CV_32S || depth == CV_32F || depth == CV_64F );
+
+    size_t elementSize = 0;
+    switch (depth)
+    {
+        case CV_8S: elementSize = sizeof(GLbyte); break;
+        case CV_8U: elementSize = sizeof(GLubyte); break;
+        case CV_16S: elementSize = sizeof(GLshort); break;
+        case CV_16U: elementSize = sizeof(GLushort); break;
+        case CV_32S: elementSize = sizeof(GLint); break;
+        case CV_32F: elementSize = sizeof(GLfloat); break;
+        case CV_64F: elementSize = sizeof(GLdouble); break;
+    }
+
+    gl::BindVertexArray(vertexArrayId_);
+    CV_CheckGlError();
+    gl::VertexAttribPointer(index, size, gl_types[depth], gl::FALSE_, stride*elementSize, (GLvoid*)(offset * elementSize));
+    CV_CheckGlError();
+    gl::EnableVertexAttribArray(index);
+    CV_CheckGlError();
+    gl::BindVertexArray(0);
+    CV_CheckGlError();
+}
+
+#endif // HAVE_OPENGL
+
+cv::ogl::VertexArray::VertexArray()
+{
+#ifndef HAVE_OPENGL
+    throw_no_ogl();
+#else
+    impl_ = Impl::empty();
+#endif
+}
+
+cv::ogl::VertexArray::VertexArray(unsigned int avertexArrayId, bool autoRelease)
+{
+#ifndef HAVE_OPENGL
+    CV_UNUSED(avertexArrayId);
+    CV_UNUSED(autoRelease);
+    throw_no_ogl();
+#else
+    impl_.reset(new Impl(avertexArrayId, autoRelease));
+#endif
+}
+
+void cv::ogl::VertexArray::bind() const
+{
+#ifndef HAVE_OPENGL
+    throw_no_ogl();
+#else
+    impl_->bind();
+#endif
+}
+
+void cv::ogl::VertexArray::unbind()
+{
+#ifndef HAVE_OPENGL
+    throw_no_ogl();
+#else
+    gl::BindVertexArray(0);
+    CV_CheckGlError();
+#endif
+}
+
+void cv::ogl::VertexArray::setAutoRelease(bool flag)
+{
+#ifndef HAVE_OPENGL
+    CV_UNUSED(flag);
+    throw_no_ogl();
+#else
+    impl_->setAutoRelease(flag);
+#endif
+}
+
+void cv::ogl::VertexArray::vertexAttribPointer(InputArray arr, unsigned int index, int size, int stride, int offset) const
+{
+#ifndef HAVE_OPENGL
+    CV_UNUSED(arr);
+    CV_UNUSED(index);
+    CV_UNUSED(size);
+    CV_UNUSED(stride);
+    CV_UNUSED(offset);
+    throw_no_ogl();
+#else
+    impl_->vertexAttribPointer(arr, index, size, stride, offset);
+#endif
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // ogl::Texture
@@ -1196,7 +1358,6 @@ void cv::ogl::Texture2D::copyTo(OutputArray arr, int ddepth, bool autoRelease) c
                 ogl::Buffer::unbind(ogl::Buffer::PIXEL_PACK_BUFFER);
                 buf.copyTo(arr);
             #endif
-
             break;
         }
 
@@ -1408,6 +1569,90 @@ void cv::ogl::Arrays::bind() const
     }
 
     ogl::Buffer::unbind(ogl::Buffer::ARRAY_BUFFER);
+#endif
+}
+
+cv::ogl::Program::Program()
+{
+#ifndef HAVE_OPENGL
+    throw_no_ogl();
+#else
+    program_ = gl::CreateProgram();
+#endif
+}
+
+void cv::ogl::Program::attachShaders(const std::string& fragment_shader_source, const std::string& vertex_shader_source)
+{
+#ifndef HAVE_OPENGL
+    CV_UNUSED(fragment_shader_source);
+    CV_UNUSED(vertex_shader_source);
+    throw_no_ogl();
+#else
+    GLuint fragment_shader = gl::CreateShader(gl::FRAGMENT_SHADER);
+    GLuint vertex_shader = gl::CreateShader(gl::VERTEX_SHADER);
+    const char* fragment_source = fragment_shader_source.c_str();
+    const char* vertex_source = vertex_shader_source.c_str();
+    gl::ShaderSource(fragment_shader, 1, &fragment_source, NULL);
+    gl::ShaderSource(vertex_shader, 1, &vertex_source, NULL);
+    gl::CompileShader(fragment_shader);
+    gl::CompileShader(vertex_shader);
+    gl::AttachShader(program_, fragment_shader);
+    gl::AttachShader(program_, vertex_shader);
+    gl::LinkProgram(program_);
+    gl::UseProgram(program_);
+#endif
+};
+
+int cv::ogl::Program::getUniformLocation(const std::string& name)
+{
+#ifndef HAVE_OPENGL
+    CV_UNUSED(name);
+    throw_no_ogl();
+#else
+    return gl::GetUniformLocation(program_, name.c_str());
+#endif
+};
+
+std::string cv::ogl::Program::getDefaultFragmentShader()
+{
+#ifndef HAVE_OPENGL
+    throw_no_ogl();
+#else
+    return
+        "#version 330 core\n"
+        "in vec2 TexCoord;\n"
+        "out vec4 color;\n"
+        "uniform sampler2D ourTexture;\n"
+        "void main() {\n"
+        "   color = texture(ourTexture, TexCoord);\n"
+        "}\n";
+#endif
+}
+
+std::string cv::ogl::Program::getDefaultVertexShader()
+{
+#ifndef HAVE_OPENGL
+    throw_no_ogl();
+#else
+    return
+        "#version 330 core\n"
+        "layout (location = 0) in vec3 position;\n"
+        "layout (location = 1) in vec2 texCoord;\n"
+        "out vec2 TexCoord;\n"
+        "uniform mat4 transform;\n"
+        "void main() {\n"
+        "   gl_Position = transform * vec4(position, 1.0);\n"
+        "   TexCoord = texCoord;\n"
+        "}\n";
+#endif
+}
+
+unsigned int cv::ogl::Program::getProgramId()
+{
+#ifndef HAVE_OPENGL
+    throw_no_ogl();
+#else
+    return program_;
 #endif
 }
 
@@ -1990,6 +2235,19 @@ void unmapGLBuffer(UMat& u)
     status = clReleaseMemObject(clBuffer);
     if (status != CL_SUCCESS)
         CV_Error_(cv::Error::OpenCLApiCallError, ("OpenCL: clReleaseMemObject failed: %d", status));
+#endif
+}
+
+void uniformMatrix4fv(int location, int count, float* value)
+{
+#if !defined(HAVE_OPENGL)
+    CV_UNUSED(location);
+    CV_UNUSED(count);
+    CV_UNUSED(value);
+    throw_no_ogl();
+#else
+    gl::UniformMatrix4fv(location, count, gl::FALSE_, value);
+    CV_CheckGlError();
 #endif
 }
 
