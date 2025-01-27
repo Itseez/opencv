@@ -410,10 +410,7 @@ class Builder:
             shutil.rmtree(framework_dir)
         os.makedirs(framework_dir)
 
-        if self.dynamic:
-            dstdir = framework_dir
-        else:
-            dstdir = os.path.join(framework_dir, "Versions", "A")
+        dstdir = os.path.join(framework_dir, "Versions", "A")
 
         # copy headers from one of build folders
         shutil.copytree(os.path.join(builddirs[0], "install", "include", "opencv2"), os.path.join(dstdir, "Headers"))
@@ -458,28 +455,24 @@ class Builder:
         print("Creating universal library from:\n\t%s" % "\n\t".join(libs), file=sys.stderr)
         execute(lipocmd)
 
-        # dynamic framework has different structure, just copy the Plist directly
-        if self.dynamic:
-            resdir = dstdir
-            shutil.copyfile(self.getInfoPlist(builddirs), os.path.join(resdir, "Info.plist"))
-        else:
-            # copy Info.plist
-            resdir = os.path.join(dstdir, "Resources")
-            os.makedirs(resdir)
-            shutil.copyfile(self.getInfoPlist(builddirs), os.path.join(resdir, "Info.plist"))
+        # copy Info.plist
+        resdir = os.path.join(dstdir, "Resources")
+        os.makedirs(resdir)
+        shutil.copyfile(self.getInfoPlist(builddirs), os.path.join(resdir, "Info.plist"))
 
-            # make symbolic links
-            links = [
-                (["A"], ["Versions", "Current"]),
-                (["Versions", "Current", "Headers"], ["Headers"]),
-                (["Versions", "Current", "Resources"], ["Resources"]),
-                (["Versions", "Current", "Modules"], ["Modules"]),
-                (["Versions", "Current", name], [name])
-            ]
-            for l in links:
-                s = os.path.join(*l[0])
-                d = os.path.join(framework_dir, *l[1])
-                os.symlink(s, d)
+        # make symbolic links
+        links = [
+            (["A"], ["Versions", "Current"]),
+            (["Versions", "Current", "Headers"], ["Headers"]),
+            (["Versions", "Current", "Resources"], ["Resources"]),
+            (["Versions", "Current", "Modules"], ["Modules"]),
+            (["Versions", "Current", name], [name])
+        ]
+        for l in links:
+            s = os.path.join(*l[0])
+            d = os.path.join(framework_dir, *l[1])
+            os.symlink(s, d)
+
         # Copy Apple privacy manifest
         shutil.copyfile(os.path.join(CURRENT_FILE_DIR, "PrivacyInfo.xcprivacy"),
                         os.path.join(resdir, "PrivacyInfo.xcprivacy"))
