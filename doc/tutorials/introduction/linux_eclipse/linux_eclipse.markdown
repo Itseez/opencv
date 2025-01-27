@@ -9,6 +9,8 @@ Using OpenCV with Eclipse (plugin CDT) {#tutorial_linux_eclipse}
 | Original author | Ana Huamán |
 | Compatibility | OpenCV >= 3.0 |
 
+@tableofcontents
+
 @warning
 This tutorial can contain obsolete information.
 

@@ -12,6 +12,8 @@
 | Original author | Dmitry Kurtaev |
 | Compatibility | OpenCV >= 4.9 |
 
+@tableofcontents
+
 ## Introduction
 In this tutorial you'll know how to run deep learning networks on Android device
 using OpenCV deep learning module.

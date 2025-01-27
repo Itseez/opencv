@@ -9,6 +9,8 @@ Introduction into Android Development {#tutorial_android_dev_intro}
 | Original author | Rostislav Vasilikhin |
 | Compatibility | OpenCV >= 4.0 |
 
+@tableofcontents
+
 This guide was designed to help you in learning Android development basics and setting up your
 working environment quickly. It was tested with Ubuntu 22.04 and Windows 10.
 

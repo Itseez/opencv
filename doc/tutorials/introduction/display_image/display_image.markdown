@@ -9,6 +9,8 @@ Getting Started with Images {#tutorial_display_image}
 | Original author | Ana Huamán |
 | Compatibility | OpenCV >= 3.4.4 |
 
+@tableofcontents
+
 @warning
 This tutorial can contain obsolete information.
 

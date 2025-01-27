@@ -9,6 +9,8 @@ Android Development with OpenCV {#tutorial_dev_with_OCV_on_Android}
 | Original authors | Alexander Panov, Rostislav Vasilikhin |
 | Compatibility | OpenCV >= 4.9.0 |
 
+@tableofcontents
+
 This tutorial has been created to help you use OpenCV library within your Android project.
 
 This guide was checked on Ubuntu but contains no platform-dependent parts, therefore should be compatible with any OS supported by Android Studio and OpenCV4Android SDK.

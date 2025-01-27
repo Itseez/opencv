@@ -1,5 +1,8 @@
 # Graph API (gapi module) {#tutorial_table_of_content_gapi}
 
+@prev_tutorial{tutorial_table_of_content_other}
+@next_tutorial{tutorial_table_of_content_ios}
+
 In this section you will learn about graph-based image processing and
 how G-API module can be used for that.
 

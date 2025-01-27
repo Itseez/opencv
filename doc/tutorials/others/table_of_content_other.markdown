@@ -1,6 +1,9 @@
 Other tutorials (ml, objdetect, photo, stitching, video) {#tutorial_table_of_content_other}
 ========================================================
 
+@prev_tutorial{tutorial_table_of_content_dnn}
+@next_tutorial{tutorial_table_of_content_gapi}
+
 -   photo. @subpage tutorial_hdr_imaging
 -   stitching. @subpage tutorial_stitcher
 -   video. @subpage tutorial_background_subtraction

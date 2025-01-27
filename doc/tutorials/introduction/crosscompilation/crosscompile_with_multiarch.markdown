@@ -11,6 +11,8 @@
 | Compatibility   | Ubuntu >=23.04 |
 |^                | OpenCV >=4.8.0 |
 
+@tableofcontents
+
 @warning
 This tutorial may contain obsolete information.
 

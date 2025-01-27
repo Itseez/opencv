@@ -8,6 +8,8 @@ How to build applications with OpenCV inside the "Microsoft Visual Studio" {#tut
 | Original author | Bernát Gábor |
 | Compatibility | OpenCV >= 3.0 |
 
+@tableofcontents
+
 @warning
 This tutorial can contain obsolete information.
 
@@ -70,7 +72,7 @@ create it. Then in the upcoming dialog make sure you create an empty project.
 
 ![](images/NewProjectVisualStudio.jpg)
 
-The *local* method
+The local method
 ------------------
 
 Every project is built separately from the others. Due to this every project has its own rule
@@ -179,7 +181,7 @@ entry inside the Property Manager to easily add the OpenCV build rules.
 
 ![](images/PropertyPageAddExisting.jpg)
 
-The *global* method
+The global method
 -------------------
 
 In case you find it too troublesome to add the property pages to each and every one of your projects you

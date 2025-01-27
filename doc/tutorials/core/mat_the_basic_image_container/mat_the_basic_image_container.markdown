@@ -148,7 +148,7 @@ picture in memory.
 Creating a Mat object explicitly
 ----------------------------------
 
-In the @ref tutorial_load_save_image tutorial you have already learned how to write a matrix to an image
+In the @ref tutorial_display_image tutorial you have already learned how to write a matrix to an image
 file by using the @ref cv::imwrite() function. However, for debugging purposes it's much more
 convenient to see the actual values. You can do this using the \<\< operator of *Mat*. Be aware that
 this only works for two dimensional matrices.

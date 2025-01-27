@@ -9,6 +9,8 @@ Introduction to Java Development {#tutorial_java_dev_intro}
 | Original author | Eric Christiansen and Andrey Pavlenko |
 | Compatibility | OpenCV >= 3.0 |
 
+@tableofcontents
+
 @warning
 This tutorial can contain obsolete information.
 

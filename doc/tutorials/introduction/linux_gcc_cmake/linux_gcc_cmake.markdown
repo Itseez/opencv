@@ -9,6 +9,8 @@ Using OpenCV with gcc and CMake {#tutorial_linux_gcc_cmake}
 | Original author | Ana Huamán |
 | Compatibility | OpenCV >= 3.0 |
 
+@tableofcontents
+
 @warning
 This tutorial can contain obsolete information.
 

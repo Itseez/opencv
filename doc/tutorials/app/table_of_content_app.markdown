@@ -1,6 +1,9 @@
 Application utils (highgui, imgcodecs, videoio modules) {#tutorial_table_of_content_app}
 =======================================================
 
+@prev_tutorial{tutorial_table_of_content_imgproc}
+@next_tutorial{tutorial_table_of_content_calib3d}
+
 -   @subpage tutorial_trackbar
 -   @subpage tutorial_raster_io_gdal
 -   @subpage tutorial_video_input_psnr_ssim

@@ -1,6 +1,9 @@
 2D Features framework (feature2d module) {#tutorial_table_of_content_features2d}
 =========================================
 
+@prev_tutorial{tutorial_table_of_content_objdetect}
+@next_tutorial{tutorial_table_of_content_dnn}
+
 -   @subpage tutorial_harris_detector
 -   @subpage tutorial_good_features_to_track
 -   @subpage tutorial_generic_corner_detector

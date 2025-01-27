@@ -9,6 +9,8 @@ Using OpenCV Java with Eclipse {#tutorial_java_eclipse}
 | Original author | Barış Evrim Demiröz |
 | Compatibility | OpenCV >= 3.0 |
 
+@tableofcontents
+
 @warning
 This tutorial can contain obsolete information.
 

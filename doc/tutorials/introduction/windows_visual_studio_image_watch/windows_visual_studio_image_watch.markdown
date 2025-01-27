@@ -9,6 +9,8 @@ Image Watch: viewing in-memory images in the Visual Studio debugger {#tutorial_w
 | Original author | Wolf Kienzle |
 | Compatibility | OpenCV >= 3.0 |
 
+@tableofcontents
+
 @warning
 This tutorial can contain obsolete information.
 

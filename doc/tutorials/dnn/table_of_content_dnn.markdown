@@ -1,6 +1,10 @@
 Deep Neural Networks (dnn module) {#tutorial_table_of_content_dnn}
 =====================================
 
+@prev_tutorial{tutorial_table_of_content_features2d}
+@next_tutorial{tutorial_table_of_content_other}
+@tableofcontents
+
 -   @subpage tutorial_dnn_googlenet
 -   @subpage tutorial_dnn_halide
 -   @subpage tutorial_dnn_halide_scheduling

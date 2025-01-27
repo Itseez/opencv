@@ -9,6 +9,8 @@ Use OpenCL in Android camera preview based CV application {#tutorial_android_ocl
 | Original author | Andrey Pavlenko, Alexander Panov |
 | Compatibility   | OpenCV >= 4.9 |
 
+@tableofcontents
+
 This guide was designed to help you in use of [OpenCL &trade;](https://www.khronos.org/opencl/) in Android camera preview based CV application.
 Tutorial was written for [Android Studio](http://developer.android.com/tools/studio/index.html) 2022.2.1. It was tested with Ubuntu 22.04.
 

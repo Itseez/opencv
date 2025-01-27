@@ -9,6 +9,8 @@ Installation in Windows {#tutorial_windows_install}
 | Original author | Bernát Gábor |
 | Compatibility | OpenCV >= 3.0 |
 
+@tableofcontents
+
 @warning
 This tutorial can contain obsolete information.
 

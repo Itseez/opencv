@@ -2,6 +2,8 @@
 GPU-Accelerated Computer Vision (cuda module) {#tutorial_table_of_content_gpu}
 =============================================
 
+@prev_tutorial{tutorial_table_of_content_ios}
+
 Squeeze out every little computation power from your system by using the power of your video card to
 run the OpenCV algorithms.
 

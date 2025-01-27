@@ -9,6 +9,8 @@ Introduction to OpenCV Development with Clojure {#tutorial_clojure_dev_intro}
 | Original author | Mimmo Cosenza |
 | Compatibility | OpenCV >= 3.0 |
 
+@tableofcontents
+
 @warning
 This tutorial can contain obsolete information.
 
