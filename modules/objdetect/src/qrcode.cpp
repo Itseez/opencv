@@ -3435,160 +3435,141 @@ bool QRDetectMulti::compareSquare::operator()(const Vec3i& a, const Vec3i& b) co
 
 int QRDetectMulti::findNumberLocalizationPoints(vector<Point2f>& tmp_localization_points)
 {
-    size_t number_possible_purpose = 1;
-    if (purpose == SHRINKING)
-        number_possible_purpose = 2;
-    Mat tmp_shrinking = bin_barcode;
-    int tmp_num_points = 0;
-    int num_points = -1;
-    for (eps_horizontal = 0.1; eps_horizontal < 0.4; eps_horizontal += 0.1)
-    {
-        tmp_num_points = 0;
-        num_points = -1;
-        if (purpose == SHRINKING)
-            number_possible_purpose = 2;
-        else
-            number_possible_purpose = 1;
-        for (size_t k = 0; k < number_possible_purpose; k++)
-        {
-            if (k == 1)
-                bin_barcode = bin_barcode_fullsize;
-            vector<Vec3d> list_lines_x = searchHorizontalLines();
-            if (list_lines_x.empty())
-            {
-                if (k == 0)
-                {
-                    k = 1;
-                    bin_barcode = bin_barcode_fullsize;
-                    list_lines_x = searchHorizontalLines();
-                    if (list_lines_x.empty())
-                        break;
-                }
-                else
-                    break;
-            }
-            vector<Point2f> list_lines_y = extractVerticalLines(list_lines_x, eps_horizontal);
-            if (list_lines_y.size() < 3)
-            {
-                if (k == 0)
-                {
-                    k = 1;
-                    bin_barcode = bin_barcode_fullsize;
-                    list_lines_x = searchHorizontalLines();
-                    if (list_lines_x.empty())
-                        break;
-                    list_lines_y = extractVerticalLines(list_lines_x, eps_horizontal);
-                    if (list_lines_y.size() < 3)
-                        break;
-                }
-                else
-                    break;
-            }
-            vector<int> index_list_lines_y;
-            for (size_t i = 0; i < list_lines_y.size(); i++)
-                index_list_lines_y.push_back(-1);
-            num_points = 0;
-            for (size_t i = 0; i < list_lines_y.size() - 1; i++)
-            {
-                for (size_t j = i; j < list_lines_y.size(); j++ )
-                {
+    // Max of 100 QR codes in an image (3 positional indicators each).
+    const size_t MaxAllowedPoints = 300;
+    const size_t NumPositionIndicatorsInQRCode = 3;
 
-                    double points_distance = norm(list_lines_y[i] - list_lines_y[j]);
-                    if (points_distance <= 10)
-                    {
-                        if ((index_list_lines_y[i] == -1) && (index_list_lines_y[j] == -1))
-                        {
-                            index_list_lines_y[i] = num_points;
-                            index_list_lines_y[j] = num_points;
-                            num_points++;
-                        }
-                        else if (index_list_lines_y[i] != -1)
-                            index_list_lines_y[j] = index_list_lines_y[i];
-                        else if (index_list_lines_y[j] != -1)
-                            index_list_lines_y[i] = index_list_lines_y[j];
+    struct Cluster {
+        Point2f center = Point2f(0, 0);
+        int numPoints = 0;
+        double distance(const Point2f& point) const { return norm(center - point); }
+        void addPoint(const Point2f& point) {
+            center = ((center * numPoints) + point) / (1+numPoints);
+            ++numPoints;
+        }
+        static vector<Cluster> findClustersInPoints(const vector<Point2f>& points) {
+            vector<Cluster> clusters;
+            for(const auto& point : points) {
+                bool isWithinCluster = false;
+                for(auto& cluster : clusters) {
+                    if(cluster.distance(point) < 10.0) {
+                        cluster.addPoint(point);
+                        isWithinCluster = true;
+                        break;
+                    }
+                }
+                if(!isWithinCluster) {
+                    Cluster newCluster;
+                    newCluster.addPoint(point);
+                    clusters.push_back(newCluster);
+                }
+            }
+
+            return clusters;
+        }
+    };
+
+    Mat scaledBinBarcodeCache = bin_barcode;
+    bool tooManyPoints = false;
+    bool useFullsizedImage = false;
+    bool useNoiseFilter = false;
+
+    size_t numPoints = 0;
+    vector<Cluster> clusters;
+
+    // With each iteration the algorithm becomes more lenient.
+    for (eps_horizontal = 0.1; eps_horizontal < 0.4; eps_horizontal += 0.1) {
+        // Attempt to find localization points on the scaled image.
+        {
+            vector<Vec3d> intermediatePotentialPoints = searchHorizontalLines();
+            if(!intermediatePotentialPoints.empty()) {
+                vector<Point2f> potentialPoints = \
+                    extractVerticalLines(intermediatePotentialPoints, eps_horizontal);
+                if(potentialPoints.size() >= NumPositionIndicatorsInQRCode) {
+                    // Each cluster represents a possible localization point.
+                    clusters = Cluster::findClustersInPoints(potentialPoints);
+                    tooManyPoints = MaxAllowedPoints < clusters.size();
+                    if(!tooManyPoints) numPoints = clusters.size();
+                }
+            }
+        }
+
+        // If the image was originally shrunk, find points on the full-sized unscaled image.
+        if(purpose == SHRINKING)
+        {
+            bin_barcode = bin_barcode_fullsize;
+            vector<Vec3d> intermediatePotentialPoints = searchHorizontalLines();
+            if(!intermediatePotentialPoints.empty()) {
+                vector<Point2f> potentialPoints = \
+                    extractVerticalLines(intermediatePotentialPoints, eps_horizontal);
+                if(potentialPoints.size() >= NumPositionIndicatorsInQRCode) {
+                    vector<Cluster> clustersOnFullSize = \
+                        Cluster::findClustersInPoints(potentialPoints);
+                    if(numPoints < clustersOnFullSize.size() && clustersOnFullSize.size() < MaxAllowedPoints) {
+                        numPoints = clustersOnFullSize.size();
+                        clusters = clustersOnFullSize;
+                        tooManyPoints = false;
+                        useFullsizedImage = true;
                     }
                 }
             }
-            for (size_t i = 0; i < index_list_lines_y.size(); i++)
-            {
-                if (index_list_lines_y[i] == -1)
-                {
-                    index_list_lines_y[i] = num_points;
-                    num_points++;
-                }
+        }
+
+        if(tooManyPoints) {
+            if(!useNoiseFilter) {
+                cv::medianBlur(scaledBinBarcodeCache, bin_barcode, 3);
+                cv::medianBlur(bin_barcode_fullsize, bin_barcode_fullsize, 3);
+                scaledBinBarcodeCache = bin_barcode;
+
+                tooManyPoints = false;
+                useFullsizedImage = false;
+                useNoiseFilter = true;
+
+                eps_horizontal--;
             }
-            if ((tmp_num_points < num_points) && (k == 1))
-            {
+            else {
+                // Further iterations would only gather more points than this iteration.
+                break;
+            }
+        }
+        else if(numPoints < NumPositionIndicatorsInQRCode) {
+            // Reset state
+            bin_barcode = scaledBinBarcodeCache;
+            useFullsizedImage = false;
+            numPoints = 0;
+            clusters.clear();
+        }
+        else {
+            if(useFullsizedImage) {
                 purpose = UNCHANGED;
-                tmp_num_points = num_points;
-                bin_barcode = bin_barcode_fullsize;
                 coeff_expansion = 1.0;
+            } else {
+                bin_barcode = scaledBinBarcodeCache;
             }
-            if ((tmp_num_points < num_points) && (k == 0))
-            {
-                tmp_num_points = num_points;
-            }
-        }
-
-        if ((tmp_num_points < 3) && (tmp_num_points >= 1))
-        {
-            const double min_side = std::min(bin_barcode_fullsize.size().width, bin_barcode_fullsize.size().height);
-            if (min_side > 512)
-            {
-                bin_barcode = tmp_shrinking;
-                purpose = SHRINKING;
-                coeff_expansion = min_side / 512.0;
-            }
-            if (min_side < 512)
-            {
-                bin_barcode = tmp_shrinking;
-                purpose = ZOOMING;
-                coeff_expansion = 512 / min_side;
-            }
-        }
-        else
             break;
+        }
     }
-    if (purpose == SHRINKING)
-        bin_barcode = tmp_shrinking;
-    num_points = tmp_num_points;
-    vector<Vec3d> list_lines_x = searchHorizontalLines();
-    if (list_lines_x.empty())
-        return num_points;
-    vector<Point2f> list_lines_y = extractVerticalLines(list_lines_x, eps_horizontal);
-    if (list_lines_y.size() < 3)
-        return num_points;
-    if (num_points < 3)
-        return num_points;
 
-    Mat labels;
-    kmeans(list_lines_y, num_points, labels,
-            TermCriteria( TermCriteria::EPS + TermCriteria::COUNT, 10, 0.1),
-            num_points, KMEANS_PP_CENTERS, tmp_localization_points);
+    if(numPoints < NumPositionIndicatorsInQRCode)
+        return static_cast<int>(numPoints);
+
+    tmp_localization_points.clear();
+    for(const auto& cluster : clusters)
+        tmp_localization_points.push_back(cluster.center);
+
     bin_barcode_temp = bin_barcode.clone();
-    if (purpose == SHRINKING)
-    {
-        const int width  = cvRound(bin_barcode.size().width  * coeff_expansion);
-        const int height = cvRound(bin_barcode.size().height * coeff_expansion);
-        Size new_size(width, height);
+    if (purpose == SHRINKING || purpose == ZOOMING) {
+        int width = cvRound(bin_barcode.cols * (purpose == SHRINKING ? coeff_expansion : 1/coeff_expansion));
+        int height = cvRound(bin_barcode.rows * (purpose == SHRINKING ? coeff_expansion : 1/coeff_expansion));
+        Size unscaledSize(width, height);
         Mat intermediate;
-        resize(bin_barcode, intermediate, new_size, 0, 0, INTER_LINEAR_EXACT);
+        resize(bin_barcode, intermediate, unscaledSize, 0, 0, INTER_LINEAR_EXACT);
         bin_barcode = intermediate.clone();
-    }
-    else if (purpose == ZOOMING)
-    {
-        const int width  = cvRound(bin_barcode.size().width  / coeff_expansion);
-        const int height = cvRound(bin_barcode.size().height / coeff_expansion);
-        Size new_size(width, height);
-        Mat intermediate;
-        resize(bin_barcode, intermediate, new_size, 0, 0, INTER_LINEAR_EXACT);
-        bin_barcode = intermediate.clone();
-    }
-    else
-    {
+    } else {
         bin_barcode = bin_barcode_fullsize.clone();
     }
-    return num_points;
+
+    return static_cast<int>(numPoints);
 }
 
 void QRDetectMulti::findQRCodeContours(vector<Point2f>& tmp_localization_points,
@@ -3621,7 +3602,7 @@ void QRDetectMulti::findQRCodeContours(vector<Point2f>& tmp_localization_points,
         count_contours = (int)all_contours_points.size();
     kmeans(all_contours_points, count_contours, qrcode_labels,
           TermCriteria( TermCriteria::EPS + TermCriteria::COUNT, 10, 0.1),
-          count_contours, KMEANS_PP_CENTERS, clustered_localization_points);
+          std::min(count_contours, 10), KMEANS_PP_CENTERS, clustered_localization_points);
 
     vector< vector< Point2f > > qrcode_clusters(count_contours);
     for (int i = 0; i < count_contours; i++)
