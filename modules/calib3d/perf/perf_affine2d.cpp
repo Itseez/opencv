@@ -64,6 +64,15 @@ static Mat rngPartialAffMat() {
     return Mat(2, 3, CV_64F, aff).clone();
 }
 
+static Mat rngPartialAffRbMat() {
+    double theta = rngIn(0, (float)CV_PI*2.f);
+    double tx = rngIn(-2, 2);
+    double ty = rngIn(-2, 2);
+    double aff[2*3] = { std::cos(theta), -std::sin(theta), tx,
+                        std::sin(theta),  std::cos(theta), ty };
+    return Mat(2, 3, CV_64F, aff).clone();
+}
+
 PERF_TEST_P( EstimateAffine, EstimateAffine2D, ESTIMATE_PARAMS )
 {
     AffineParams params = GetParam();
@@ -156,6 +165,54 @@ PERF_TEST_P( EstimateAffine, EstimateAffinePartial2D, ESTIMATE_PARAMS )
     TEST_CYCLE()
     {
         aff_est = estimateAffinePartial2D(fpts, tpts, inliers, method, 3, 2000, confidence, refining);
+    }
+
+    // we already have accuracy tests
+    SANITY_CHECK_NOTHING();
+}
+
+PERF_TEST_P( EstimateAffine, estimateAffineRigidBody2D, ESTIMATE_PARAMS )
+{
+    AffineParams params = GetParam();
+    const int n = get<0>(params);
+    const double confidence = get<1>(params);
+    const int method = get<2>(params);
+    const size_t refining = get<3>(params);
+
+    Mat aff = rngPartialAffRbMat();
+
+    int m;
+    // LMEDS can't handle more than 50% outliers (by design)
+    if (method == LMEDS)
+        m = 3*n/5;
+    else
+        m = 2*n/5;
+    const float shift_outl = 15.f;    const float noise_level = 20.f;
+
+    Mat fpts(1, n, CV_32FC2);
+    Mat tpts(1, n, CV_32FC2);
+
+    randu(fpts, 0., 100.);
+    transform(fpts, tpts, aff);
+
+    /* adding noise*/
+    Mat outliers = tpts.colRange(m, n);
+    outliers.reshape(1) += shift_outl;
+
+    Mat noise (outliers.size(), outliers.type());
+    randu(noise, 0., noise_level);
+    outliers += noise;
+
+    Mat aff_est;
+    vector<uchar> inliers (n);
+
+    warmup(inliers, WARMUP_WRITE);
+    warmup(fpts, WARMUP_READ);
+    warmup(tpts, WARMUP_READ);
+
+    TEST_CYCLE()
+    {
+        aff_est = estimateAffineRigidBody2D(fpts, tpts, inliers, method, 3, 2000, confidence, refining);
     }
 
     // we already have accuracy tests

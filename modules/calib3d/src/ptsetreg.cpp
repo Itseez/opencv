@@ -762,6 +762,70 @@ public:
     }
 };
 
+/*
+ * Compute
+ *  x    c -s    X    t1
+ *    =       *     +
+ *  y    s  c    Y    t2
+ *
+ *  - every element in _m1 contains (X,Y), which are called source points
+ *  - every element in _m2 contains (x,y), which are called destination points
+ *  - _model is of size 2x3, which contains
+ *    c  -s  t1
+ *    s   c  t2
+ */
+class AffineRigidBody2DEstimatorCallback : public Affine2DEstimatorCallback
+{
+public:
+    int runKernel( InputArray _m1, InputArray _m2, OutputArray _model ) const CV_OVERRIDE
+    {
+        Mat m1 = _m1.getMat(), m2 = _m2.getMat();
+        const Point2f* from = m1.ptr<Point2f>();
+        const Point2f* to   = m2.ptr<Point2f>();
+        _model.create(2, 3, CV_64F);
+        Mat M_mat = _model.getMat();
+        double *M = M_mat.ptr<double>();
+
+        // we need only 2 points to estimate transform
+        double x1 = from[0].x;
+        double y1 = from[0].y;
+        double x2 = from[1].x;
+        double y2 = from[1].y;
+
+        double X1 = to[0].x;
+        double Y1 = to[0].y;
+        double X2 = to[1].x;
+        double Y2 = to[1].y;
+
+        /*
+        we are solving AS = B
+            | x1 -y1 1 0 |
+            | y1  x1 0 1 |
+        A = | x2 -y2 1 0 |
+            | y2  x2 0 1 |
+        B = (X1, Y1, X2, Y2).t()
+        we solve that analytically
+        */
+        double d = 1./((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2));
+        double C = d * ( (X1-X2)*(x1-x2) + (Y1-Y2)*(y1-y2) ); // scaling * cos
+        double S = d * ( (Y1-Y2)*(x1-x2) - (X1-X2)*(y1-y2) ); // scaling * sin
+
+        // solution vector
+        double S0 = C/(std::sqrt(S*S + C*C));
+        double S1 = S/(std::sqrt(S*S + C*C));
+        double S2 = (X1 + X2 + S1*(y1 + y2) - S0*(x1 + x2)) / 2;
+        double S3 = (Y1 + Y2 - S0*(y1 + y2) - S1*(x1 + x2)) / 2;
+
+        // set model, rotation part is antisymmetric
+        M[0] = M[4] = S0;
+        M[1] = -S1;
+        M[2] = S2;
+        M[3] = S1;
+        M[5] = S3;
+        return 1;
+    }
+};
+
 class Affine2DRefineCallback : public LMSolver::Callback
 {
 public:
@@ -855,6 +919,69 @@ public:
             double yi = h[1]*Mx + h[0]*My + h[3];
             errptr[i*2] = xi - m[i].x;
             errptr[i*2+1] = yi - m[i].y;
+
+            /*
+            Jacobian should be:
+                {x, -y, 1, 0}
+                {y,  x, 0, 1}
+            */
+            if( Jptr )
+            {
+                Jptr[0] = Mx; Jptr[1] = -My; Jptr[2] = 1.; Jptr[3] = 0.;
+                Jptr[4] = My; Jptr[5] =  Mx; Jptr[6] = 0.; Jptr[7] = 1.;
+
+                Jptr += 4*2;
+            }
+        }
+
+        return true;
+    }
+
+    Mat src, dst;
+};
+
+class AffineRigidBody2DRefineCallback : public LMSolver::Callback
+{
+public:
+    AffineRigidBody2DRefineCallback(InputArray _src, InputArray _dst)
+    {
+        src = _src.getMat();
+        dst = _dst.getMat();
+    }
+
+    bool compute(InputArray _param, OutputArray _err, OutputArray _Jac) const CV_OVERRIDE
+    {
+        int i, count = src.checkVector(2);
+        Mat param = _param.getMat();
+        _err.create(count * 2, 1, CV_64F);
+        Mat err = _err.getMat(), J;
+        if (_Jac.needed())
+        {
+            _Jac.create(count * 2, param.rows, CV_64F);
+            J = _Jac.getMat();
+            CV_Assert(J.isContinuous() && J.cols == 4); // 4 parameters: cos(theta), sin(theta), tx, ty
+        }
+
+        const Point2f* M = src.ptr<Point2f>();
+        const Point2f* m = dst.ptr<Point2f>();
+        double* h = param.ptr<double>();
+        double* errptr = err.ptr<double>();
+        double* Jptr = J.data ? J.ptr<double>() : 0;
+
+        // Normalize rotation parameters to enforce constraint during optimization
+        double norm = std::sqrt(h[0] * h[0] + h[1] * h[1]);
+        h[0] /= norm; // Normalize cos(theta)
+        h[1] /= norm; // Normalize sin(theta)
+
+        // Compute errors and Jacobian
+        for (i = 0; i < count; i++)
+        {
+            double Mx = M[i].x, My = M[i].y;
+            double xi = h[0] * Mx - h[1] * My + h[2]; // x'
+            double yi = h[1] * Mx + h[0] * My + h[3]; // y'
+
+            errptr[i * 2] = xi - m[i].x;     // Error in x
+            errptr[i * 2 + 1] = yi - m[i].y; // Error in y
 
             /*
             Jacobian should be:
@@ -1160,6 +1287,93 @@ Mat estimateAffinePartial2D(InputArray _from, InputArray _to, OutputArray _inlie
             double Hvec_buf[4] = {Hptr[0], Hptr[3], Hptr[2], Hptr[5]};
             Mat Hvec (4, 1, CV_64F, Hvec_buf);
             LMSolver::create(makePtr<AffinePartial2DRefineCallback>(src, dst), static_cast<int>(refineIters))->run(Hvec);
+            // update H with refined parameters
+            Hptr[0] = Hptr[4] = Hvec_buf[0];
+            Hptr[1] = -Hvec_buf[1];
+            Hptr[2] = Hvec_buf[2];
+            Hptr[3] = Hvec_buf[1];
+            Hptr[5] = Hvec_buf[3];
+        }
+    }
+
+    if (!result)
+    {
+        H.release();
+        if(_inliers.needed())
+        {
+            inliers = Mat::zeros(count, 1, CV_8U);
+            inliers.copyTo(_inliers);
+        }
+    }
+
+    return H;
+}
+
+Mat estimateAffineRigidBody2D(InputArray _from, InputArray _to, OutputArray _inliers,
+                            const int method, const double ransacReprojThreshold,
+                            const size_t maxIters, const double confidence,
+                            const size_t refineIters)
+{
+    Mat from = _from.getMat(), to = _to.getMat();
+    const int count = from.checkVector(2);
+    bool result = false;
+    Mat H;
+
+    CV_Assert( count >= 0 && to.checkVector(2) == count );
+
+    if (from.type() != CV_32FC2 || to.type() != CV_32FC2)
+    {
+        Mat tmp1, tmp2;
+        from.convertTo(tmp1, CV_32FC2);
+        from = tmp1;
+        to.convertTo(tmp2, CV_32FC2);
+        to = tmp2;
+    }
+    else
+    {
+        // avoid changing of inputs in compressElems() call
+        from = from.clone();
+        to = to.clone();
+    }
+
+    // convert to N x 1 vectors
+    from = from.reshape(2, count);
+    to = to.reshape(2, count);
+
+    Mat inliers;
+    if(_inliers.needed())
+    {
+        _inliers.create(count, 1, CV_8U, -1, true);
+        inliers = _inliers.getMat();
+    }
+
+    // run robust estimation
+    Ptr<PointSetRegistrator::Callback> cb = makePtr<AffineRigidBody2DEstimatorCallback>();
+    if( method == RANSAC )
+        result = createRANSACPointSetRegistrator(cb, 2, ransacReprojThreshold, confidence, static_cast<int>(maxIters))->run(from, to, H, inliers);
+    else if( method == LMEDS )
+        result = createLMeDSPointSetRegistrator(cb, 2, confidence, static_cast<int>(maxIters))->run(from, to, H, inliers);
+    else
+        CV_Error(Error::StsBadArg, "Unknown or unsupported robust estimation method");
+
+    if(result && count > 2 && refineIters)
+    {
+        // reorder to start with inliers
+        compressElems(from.ptr<Point2f>(), inliers.ptr<uchar>(), 1, count);
+        int inliers_count = compressElems(to.ptr<Point2f>(), inliers.ptr<uchar>(), 1, count);
+        if(inliers_count > 0)
+        {
+            Mat src = from.rowRange(0, inliers_count);
+            Mat dst = to.rowRange(0, inliers_count);
+            // H is
+            //     a -b tx
+            //     b  a ty
+            // Hvec model for LevMarq is
+            //     (a, b, tx, ty)
+            double *Hptr = H.ptr<double>();
+            double Hvec_buf[4] = {Hptr[0], Hptr[3], Hptr[2], Hptr[5]};
+            Mat Hvec (4, 1, CV_64F, Hvec_buf);
+            LMSolver::create(makePtr<AffineRigidBody2DRefineCallback>(src, dst), static_cast<int>(refineIters))->run(Hvec);
             // update H with refined parameters
             Hptr[0] = Hptr[4] = Hvec_buf[0];
             Hptr[1] = -Hvec_buf[1];
