@@ -448,15 +448,15 @@ dasiamrpn:
 
 ldm_inpainting:
   encoder_load_info:
-    url: None # TODO: Add actual URL when available
-    sha1: None  # TODO: Add actual SHA1 when available
+    encoder_url: "https://dl.opencv.org/models/ldm_inpainting/InpaintEncoder.onnx"
+    encoder_sha1: "eb663262304473d81d6ae627d7117892dac56b5e"
   encoder_model: "InpaintEncoder.onnx"
   decoder_load_info:
-    url: None # TODO: Add actual URL when available
-    sha1: None  # TODO: Add actual SHA1 when available
+    decoder_url: "https://dl.opencv.org/models/ldm_inpainting/InpaintDecoder.onnx"
+    decoder_sha1: "af258c100e3a3b0970493b6375c8775beaffc9d1"
   decoder_model: "InpaintDecoder.onnx"
   diffusor_load_info:
-    url: None # TODO: Add actual URL when available
-    sha1: None  # TODO: Add actual SHA1 when available
+    diffusor_url: "https://dl.opencv.org/models/ldm_inpainting/LatentDiffusion.onnx"
+    diffusor_sha1: "2c6f8a505d9a93195510c854d8f023fab27ce70e"
   diffusor_model: "LatentDiffusion.onnx"
   sample: "ldm_inpainting"
