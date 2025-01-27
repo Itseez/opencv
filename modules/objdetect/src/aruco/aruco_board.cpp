@@ -625,19 +625,31 @@ bool CharucoBoard::checkCharucoCornersCollinear(InputArray charucoIds) const {
     return true;
 }
 
-std::vector<Point3f> CharucoBoard::getChessboardCorners() const {
+std::vector<Point3f>& CharucoBoard::getChessboardCornersRef() const {
     CV_Assert(impl);
     return static_pointer_cast<CharucoBoardImpl>(impl)->chessboardCorners;
 }
 
-std::vector<std::vector<int> > CharucoBoard::getNearestMarkerIdx() const {
+std::vector<std::vector<int> >& CharucoBoard::getNearestMarkerIdxRef() const {
     CV_Assert(impl);
     return static_pointer_cast<CharucoBoardImpl>(impl)->nearestMarkerIdx;
 }
 
-std::vector<std::vector<int> > CharucoBoard::getNearestMarkerCorners() const {
+std::vector<std::vector<int> >& CharucoBoard::getNearestMarkerCornersRef() const {
     CV_Assert(impl);
     return static_pointer_cast<CharucoBoardImpl>(impl)->nearestMarkerCorners;
+}
+
+std::vector<Point3f> CharucoBoard::getChessboardCorners() const {
+    return getChessboardCornersRef();
+}
+
+std::vector<std::vector<int> > CharucoBoard::getNearestMarkerIdx() const {
+    return getNearestMarkerIdxRef();
+}
+
+std::vector<std::vector<int> > CharucoBoard::getNearestMarkerCorners() const {
+    return getNearestMarkerCornersRef();
 }
 
 }
