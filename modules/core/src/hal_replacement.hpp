@@ -307,9 +307,69 @@ Hamming distance between two vectors
 inline int hal_ni_normHammingDiff8u(const uchar* a, const uchar* b, int n, int cellSize, int* result) { return CV_HAL_ERROR_NOT_IMPLEMENTED; }
 //! @}
 
+/**
+@brief Generic norm of an array.
+@param src Source image
+@param src_step Source image
+@param mask Specified array region.
+@param mask_step Mask array step.
+@param width Source image dimensions
+@param height Source image dimensions
+@param type Element type of source image
+@param norm_type Type of the norm
+@param result Pointer to result output
+*/
+//! @addtogroup core_hal_interface_norm Absolute norm
+//! @{
+inline int hal_ni_norm(const uchar* src, size_t src_step, const uchar* mask, size_t mask_step, int width,
+                       int height, int type, int norm_type, double* result) { return CV_HAL_ERROR_NOT_IMPLEMENTED; }
+//! @}
+
+/**
+@brief Generic norm between two arrays.
+@param src1 First source image
+@param src1_step First source image
+@param src2 Second source image
+@param src2_step Second source image
+@param mask Specified array region.
+@param mask_step Mask array step.
+@param width Source image dimensions
+@param height Source image dimensions
+@param type Element type of source image
+@param norm_type Type of the norm
+@param result Pointer to result output
+*/
+//! @addtogroup core_hal_interface_norm Absolute norm
+//! @{
+inline int hal_ni_normDiff(const uchar* src1, size_t src1_step, const uchar* src2, size_t src2_step, const uchar* mask,
+                           size_t mask_step, int width, int height, int type, int norm_type, double* result) { return CV_HAL_ERROR_NOT_IMPLEMENTED; }
+//! @}
+
+/**
+@brief Convert array to another with specified type.
+@param src Source image
+@param src_step Source image
+@param dst Destination image
+@param dst_step Destination image
+@param width Source image dimensions
+@param height Source image dimensions
+@param sdepth Depth of source image
+@param ddepth Depth of destination image
+@param alpha Scale value
+@param beta Shift value
+*/
+//! @addtogroup core_hal_interface_convert Array convert
+//! @{
+inline int hal_ni_convertScale(const uchar* src, size_t src_step, uchar* dst, size_t dst_step, int width, int height,
+                               int sdepth, int ddepth, double alpha, double beta) { return CV_HAL_ERROR_NOT_IMPLEMENTED; }
+//! @}
+
 //! @cond IGNORED
 #define cv_hal_normHamming8u hal_ni_normHamming8u
 #define cv_hal_normHammingDiff8u hal_ni_normHammingDiff8u
+#define cv_hal_norm hal_ni_norm
+#define cv_hal_normDiff hal_ni_normDiff
+#define cv_hal_convertScale hal_ni_convertScale
 //! @endcond
 
 /**

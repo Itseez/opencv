@@ -626,6 +626,16 @@ double norm( InputArray _src, int normType, InputArray _mask )
     CV_IPP_RUN(IPP_VERSION_X100 >= 700, ipp_norm(src, normType, mask, _result), _result);
 
     int depth = src.depth(), cn = src.channels();
+    if( src.dims <= 2 )
+    {
+        double result;
+        CALL_HAL_RET(norm, cv_hal_norm, result, src.data, src.step, mask.data, mask.step, src.cols, src.rows, src.type(), normType);
+    }
+    else if( src.isContinuous() && mask.isContinuous() )
+    {
+        double result;
+        CALL_HAL_RET(norm, cv_hal_norm, result, src.data, 0, mask.data, 0, (int)src.total(), 1, src.type(), normType);
+    }
     if( src.isContinuous() && mask.empty() )
     {
         size_t len = src.total()*cn;
@@ -1123,6 +1133,16 @@ double norm( InputArray _src1, InputArray _src2, int normType, InputArray _mask 
                normType == NORM_L2 || normType == NORM_L2SQR ||
               ((normType == NORM_HAMMING || normType == NORM_HAMMING2) && src1.type() == CV_8U) );
 
+    if( src1.dims <= 2 )
+    {
+        double result;
+        CALL_HAL_RET(normDiff, cv_hal_normDiff, result, src1.data, src1.step, src2.data, src2.step, mask.data, mask.step, src1.cols, src1.rows, src1.type(), normType);
+    }
+    else if( src1.isContinuous() && src2.isContinuous() && mask.isContinuous() )
+    {
+        double result;
+        CALL_HAL_RET(normDiff, cv_hal_normDiff, result, src1.data, 0, src2.data, 0, mask.data, 0, (int)src1.total(), 1, src1.type(), normType);
+    }
     if( src1.isContinuous() && src2.isContinuous() && mask.empty() )
     {
         size_t len = src1.total()*src1.channels();
