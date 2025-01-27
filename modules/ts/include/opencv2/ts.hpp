@@ -764,8 +764,8 @@ void addDataSearchSubDirectory(const std::string& subdir);
   0. TS::data_search_path (search sub-directories are not used)
   1. OPENCV_TEST_DATA_PATH environment variable
   2. One of these:
-     a. OpenCV testdata based on build location: "./" + "share/OpenCV/testdata"
-     b. OpenCV testdata at install location: CMAKE_INSTALL_PREFIX + "share/OpenCV/testdata"
+     a. OpenCV testdata based on build location: "./" + "share/opencv4/testdata"
+     b. OpenCV testdata at install location: CMAKE_INSTALL_PREFIX + "share/opencv4/testdata"
 
   Search sub-directories:
 

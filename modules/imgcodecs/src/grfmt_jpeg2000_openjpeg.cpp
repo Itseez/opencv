@@ -323,29 +323,29 @@ opj_dparameters setupDecoderParameters()
     return parameters;
 }
 
-opj_cparameters setupEncoderParameters(const std::vector<int>& params)
+opj_cparameters setupEncoderParameters(const std::vector<int>& params, const int numChannels)
 {
     opj_cparameters parameters;
     opj_set_default_encoder_parameters(&parameters);
-    bool rate_is_specified = false;
+    parameters.tcp_rates[0] = 4.0f;
+    parameters.tcp_numlayers = 1;
+    parameters.cp_disto_alloc = 1;
+    parameters.tcp_mct = numChannels >= 3 ? 1 : 0;
+
     for (size_t i = 0; i < params.size(); i += 2)
     {
         switch (params[i])
         {
         case cv::IMWRITE_JPEG2000_COMPRESSION_X1000:
-            parameters.tcp_rates[0] = 1000.f / std::min(std::max(params[i + 1], 1), 1000);
-            rate_is_specified = true;
+            if (params[i + 1] > 0)
+            {
+                parameters.tcp_rates[0] = 1000.f / std::min(params[i + 1], 1000);
+            }
             break;
         default:
             CV_LOG_WARNING(NULL, "OpenJPEG2000(encoder): skip unsupported parameter: " << params[i]);
             break;
         }
-    }
-    parameters.tcp_numlayers = 1;
-    parameters.cp_disto_alloc = 1;
-    if (!rate_is_specified)
-    {
-        parameters.tcp_rates[0] = 4;
     }
     return parameters;
 }
@@ -717,7 +717,7 @@ bool Jpeg2KOpjEncoder::write(const Mat& img, const std::vector<int>& params)
                  cv::format("OpenJPEG2000: image precision > 16 not supported. Got: %d", depth));
     }();
 
-    opj_cparameters parameters = setupEncoderParameters(params);
+    opj_cparameters parameters = setupEncoderParameters(params, img.channels());
 
     std::vector<opj_image_cmptparm_t> compparams(channels);
     for (int i = 0; i < channels; i++) {
