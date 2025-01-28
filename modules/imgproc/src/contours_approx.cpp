@@ -31,7 +31,7 @@ static const Point chainCodeDeltas[8] =
 // Restores all the digital curve points from the chain code.
 // Removes the points (from the resultant polygon)
 // that have zero 1-curvature
-static vector<ApproxItem> pass_0(const vector<schar>& chain, Point pt, bool isApprox, bool isFull)
+static vector<ApproxItem> pass_0(const ContourCodesStorage& chain, Point pt, bool isApprox, bool isFull)
 {
     vector<ApproxItem> res;
     const size_t len = chain.size();
@@ -52,17 +52,14 @@ static vector<ApproxItem> pass_0(const vector<schar>& chain, Point pt, bool isAp
     return res;
 }
 
-static vector<Point> gatherPoints(const vector<ApproxItem>& ares)
+static void gatherPoints(const vector<ApproxItem>& ares, ContourPointsStorage& output)
 {
-    vector<Point> res;
-    res.reserve(ares.size() / 2);
+    output.clear();
     for (const ApproxItem& item : ares)
     {
-        if (item.removed)
-            continue;
-        res.push_back(item.pt);
+        if (!item.removed)
+            output.push_back(item.pt);
     }
-    return res;
 }
 
 static size_t calc_support(const vector<ApproxItem>& ares, size_t i)
@@ -273,11 +270,14 @@ static void pass_cleanup(vector<ApproxItem>& ares, size_t start_idx)
 }  // namespace
 
 
-vector<Point> cv::approximateChainTC89(vector<schar> chain, const Point& origin, const int method)
+void cv::approximateChainTC89(const ContourCodesStorage& chain, const Point& origin, const int method,
+                              ContourPointsStorage& output)
 {
     if (chain.size() == 0)
     {
-        return vector<Point>({origin});
+        output.clear();
+        output.push_back(origin);
+        return;
     }
 
     const bool isApprox = method == CHAIN_APPROX_TC89_L1 || method == CHAIN_APPROX_TC89_KCOS;
@@ -349,5 +349,5 @@ vector<Point> cv::approximateChainTC89(vector<schar> chain, const Point& origin,
         }
     }
 
-    return gatherPoints(ares);
+    gatherPoints(ares, output);
 }

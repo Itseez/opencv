@@ -22,12 +22,11 @@ void cv::contourTreeToResults(CTree& tree,
         return;
     }
 
-    // mapping for indexes (original -> resulting)
-    map<int, int> index_mapping;
-    index_mapping[-1] = -1;
-    index_mapping[0] = -1;
-
     CV_Assert(tree.size() < (size_t)numeric_limits<int>::max());
+    // mapping for indexes (original -> resulting)
+    // -1 - based indexing
+    vector<int> index_mapping(tree.size() + 1, -1);
+
     const int total = (int)tree.size() - 1;
     _contours.create(total, 1, 0, -1, true);
     {
@@ -39,7 +38,7 @@ void cv::contourTreeToResults(CTree& tree,
             CV_Assert(elem.self() != -1);
             if (elem.self() == 0)
                 continue;
-            index_mapping[elem.self()] = i;
+            index_mapping.at(elem.self() + 1) = i;
             CV_Assert(elem.body.size() < (size_t)numeric_limits<int>::max());
             const int sz = (int)elem.body.size();
             _contours.create(sz, 1, res_type, i, true);
@@ -65,10 +64,10 @@ void cv::contourTreeToResults(CTree& tree,
             if (elem.self() == 0)
                 continue;
             Vec4i& h_vec = h_mat.at<Vec4i>(i);
-            h_vec = Vec4i(index_mapping.at(elem.next),
-                          index_mapping.at(elem.prev),
-                          index_mapping.at(elem.first_child),
-                          index_mapping.at(elem.parent));
+            h_vec = Vec4i(index_mapping.at(elem.next + 1),
+                          index_mapping.at(elem.prev + 1),
+                          index_mapping.at(elem.first_child + 1),
+                          index_mapping.at(elem.parent + 1));
             ++i;
         }
     }

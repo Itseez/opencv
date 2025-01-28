@@ -90,10 +90,13 @@ public:
     vector<int> ext_rns;
     vector<int> int_rns;
 
+    ContourPointsStorage::storage_t pointsStorage;
+    ContourCodesStorage::storage_t codesStorage;
+
 public:
-    LinkRunner()
+    LinkRunner(void)
     {
-        tree.newElem();
+        tree.newElem(Contour(&pointsStorage, &codesStorage));
         rns.reserve(100);
     }
     void process(Mat& image);
@@ -117,12 +120,12 @@ void LinkRunner::convertLinks(int& first, int& prev, bool isHole)
         if (rns[cur].link == -1)
             continue;
 
-        CNode& node = tree.newElem();
+        CNode& node = tree.newElem(Contour(&pointsStorage, &codesStorage));
         node.body.isHole = isHole;
 
         do
         {
-            node.body.pts.push_back(rns[cur].pt);
+            node.body.addPoint(rns[cur].pt);
             int p_temp = cur;
             cur = rns[cur].link;
             rns[p_temp].link = -1;
