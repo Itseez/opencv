@@ -1062,6 +1062,28 @@ inline int hal_ni_threshold(const uchar* src_data, size_t src_step, uchar* dst_d
 //! @endcond
 
 /**
+   @brief Calculates fixed-level threshold to each array element
+   @param src_data Source image data
+   @param src_step Source image step
+   @param dst_data Destination image data
+   @param dst_step Destination image step
+   @param mask_data Mask image data
+   @param mask_step Mask image step
+   @param width Source image width
+   @param height Source image height
+   @param depth Depths of source and destination image
+   @param cn Number of channels
+   @param thresh Threshold value
+   @param maxValue Value assigned to the pixels for which the condition is satisfied
+   @param thresholdType Thresholding type
+*/
+inline int hal_ni_threshold_mask(const uchar* src_data, size_t src_step, uchar* dst_data, size_t dst_step, uchar* mask_data, size_t mask_step, int width, int height, int depth, int cn, double thresh, double maxValue, int thresholdType) { return CV_HAL_ERROR_NOT_IMPLEMENTED; }
+
+//! @cond IGNORED
+#define cv_hal_threshold_mask hal_ni_threshold_mask
+//! @endcond
+
+/**
    @brief Performs threshold filtering using threshold estimated by Otsu algorithm
    @param src_data Source image data
    @param src_step Source image step
@@ -1078,6 +1100,27 @@ inline int hal_ni_threshold_otsu(const uchar* src_data, size_t src_step, uchar* 
 
 //! @cond IGNORED
 #define cv_hal_threshold_otsu hal_ni_threshold_otsu
+//! @endcond
+
+/**
+@brief Performs threshold filtering using threshold estimated by Otsu algorithm
+@param src_data Source image data
+@param src_step Source image step
+@param dst_data Destination image data
+@param dst_step Destination image step
+@param mask_data Mask image data
+@param mask_step Mask image step
+@param width Source image width
+@param height Source image height
+@param depth Depths of source and destination image
+@param maxValue Value assigned to the pixels for which the condition is satisfied
+@param thresholdType Thresholding type
+@param thresh Calculated threshold value
+*/
+inline int hal_ni_threshold_mask_otsu(const uchar* src_data, size_t src_step, uchar* dst_data, size_t dst_step, const uchar* mask_data, size_t mask_step, int width, int height, int depth, double maxValue, int thresholdType, double* thresh) { return CV_HAL_ERROR_NOT_IMPLEMENTED; }
+
+//! @cond IGNORED
+#define cv_hal_threshold_mask_otsu hal_ni_threshold_mask_otsu
 //! @endcond
 
 /**

@@ -3074,6 +3074,7 @@ or Triangle algorithm and uses it instead of the specified thresh.
 
 @param src input array (multiple-channel, 8-bit or 32-bit floating point).
 @param dst output array of the same size  and type and the same number of channels as src.
+@param mask optional mask (same size as src, 8-bit).
 @param thresh threshold value.
 @param maxval maximum value to use with the #THRESH_BINARY and #THRESH_BINARY_INV thresholding
 types.
@@ -3082,9 +3083,11 @@ types.
 
 @sa  adaptiveThreshold, findContours, compare, min, max
  */
-CV_EXPORTS_W double threshold( InputArray src, OutputArray dst,
+CV_EXPORTS_W double threshold( InputArray src, OutputArray dst, InputArray mask,
                                double thresh, double maxval, int type );
 
+CV_EXPORTS_W double threshold( InputArray src, OutputArray dst,
+                               double thresh, double maxval, int type );
 
 /** @brief Applies an adaptive threshold to an array.
 

@@ -520,6 +520,55 @@ TEST(Imgproc_Threshold, threshold_dryrun)
     }
 }
 
+typedef tuple < bool, int, int, int, int > Imgproc_Threshold_Masked_Params_t;
+
+typedef testing::TestWithParam< Imgproc_Threshold_Masked_Params_t > Imgproc_Threshold_Masked;
+
+TEST_P(Imgproc_Threshold_Masked, threshold_mask)
+{
+    bool useROI = get<0>(GetParam());
+    int depth = get<1>(GetParam());
+    int cn = get<2>(GetParam());
+    int threshType = get<3>(GetParam());
+    int threshFlag = get<4>(GetParam());
+    const bool isValidConfig = ((depth == CV_8U) || ((threshFlag != THRESH_OTSU) && (threshFlag != THRESH_TRIANGLE)));
+    if (isValidConfig)
+    {
+        const int _threshType = threshType | threshFlag;
+        Size sz(127, 127);
+        Size wrapperSize = useROI ? Size(sz.width+4, sz.height+4) : sz;
+        Mat wrapper(wrapperSize, CV_MAKETYPE(depth, cn));
+        Mat input = useROI ? Mat(wrapper, Rect(Point(), sz)) : wrapper;
+        cv::randu(input, cv::Scalar::all(0), cv::Scalar::all(255));
+
+        Mat mask = cv::Mat::zeros(sz, CV_8UC1);
+        cv::RotatedRect ellipseRect((cv::Point2f)cv::Point(sz.width/2, sz.height/2), (cv::Size2f)sz, 0);
+        cv::ellipse(mask, ellipseRect, cv::Scalar::all(255), cv::FILLED);//for very different mask alignments
+
+        Mat output_with_mask = cv::Mat::zeros(sz, input.type());
+        cv::threshold(input, output_with_mask, mask, 127, 255, _threshType);
+
+        cv::bitwise_not(mask, mask);
+        input.copyTo(output_with_mask, mask);
+
+        Mat output_without_mask;
+        cv::threshold(input, output_without_mask, 127, 255, _threshType);
+        input.copyTo(output_without_mask, mask);
+
+        EXPECT_MAT_NEAR(output_with_mask, output_without_mask, 0);
+    }
+}
+
+INSTANTIATE_TEST_CASE_P(/*nothing*/, Imgproc_Threshold_Masked,
+    testing::Combine(
+        testing::Values(false, true),//use roi
+        testing::Values(CV_8U, CV_16U, CV_16S, CV_32F, CV_64F),//depth
+        testing::Values(1, 3),//channels
+        testing::Values(THRESH_BINARY, THRESH_BINARY_INV, THRESH_TRUNC, THRESH_TOZERO, THRESH_TOZERO_INV),// threshTypes
+        testing::Values(0)//threshFlags there is no way to compare masked to non-masked OTSU/TRIANGLE since the threshold will be different
+    )
+);
+
 
 TEST(Imgproc_Threshold, regression_THRESH_TOZERO_IPP_16085)
 {

@@ -420,6 +420,49 @@ OCL_TEST_P(Threshold_Dryrun, Mat)
     }
 }
 
+struct Threshold_masked :
+    public ImgprocTestBase
+{
+    int thresholdType;
+
+    virtual void SetUp()
+    {
+        type = GET_PARAM(0);
+        thresholdType = GET_PARAM(2);
+        useRoi = GET_PARAM(3);
+    }
+};
+
+OCL_TEST_P(Threshold_masked, Mat)
+{
+    for (int j = 0; j < test_loop_times; j++)
+    {
+        random_roi();
+
+        double maxVal = randomDouble(20.0, 127.0);
+        double thresh = randomDouble(0.0, maxVal);
+
+        const int _thresholdType = thresholdType;
+
+        cv::Size sz = src_roi.size();
+        cv::Mat mask_roi = cv::Mat::zeros(sz, CV_8UC1);
+        cv::RotatedRect ellipseRect((cv::Point2f)cv::Point(sz.width/2, sz.height/2), (cv::Size2f)sz, 0);
+        cv::ellipse(mask_roi, ellipseRect, cv::Scalar::all(255), cv::FILLED);//for very different mask alignments
+
+        cv::UMat umask_roi(mask_roi.size(), mask_roi.type());
+        mask_roi.copyTo(umask_roi.getMat(cv::AccessFlag::ACCESS_WRITE));
+
+        src_roi.copyTo(dst_roi);
+        usrc_roi.copyTo(udst_roi);
+
+        OCL_OFF(cv::threshold(src_roi, dst_roi, mask_roi, thresh, maxVal, _thresholdType));
+        OCL_ON(cv::threshold(usrc_roi, udst_roi, umask_roi, thresh, maxVal, _thresholdType));
+
+        OCL_EXPECT_MATS_NEAR(dst, 0);
+    }
+}
+
+
 /////////////////////////////////////////// CLAHE //////////////////////////////////////////////////
 
 PARAM_TEST_CASE(CLAHETest, Size, double, bool)
@@ -521,6 +564,14 @@ OCL_INSTANTIATE_TEST_CASE_P(Imgproc, Threshold_Dryrun, Combine(
                             Values(CV_8UC1, CV_8UC2, CV_8UC3, CV_8UC4,
                                    CV_16SC1, CV_16SC2, CV_16SC3, CV_16SC4,
                                    CV_32FC1, CV_32FC2, CV_32FC3, CV_32FC4),
+                            Values(0),
+                            Values(ThreshOp(THRESH_BINARY),
+                                   ThreshOp(THRESH_BINARY_INV), ThreshOp(THRESH_TRUNC),
+                                   ThreshOp(THRESH_TOZERO), ThreshOp(THRESH_TOZERO_INV)),
+                            Bool()));
+
+OCL_INSTANTIATE_TEST_CASE_P(Imgproc, Threshold_masked, Combine(
+                            Values(CV_8UC1, CV_8UC3, CV_16SC1, CV_16SC3, CV_16UC1, CV_16UC3, CV_32FC1, CV_32FC3, CV_64FC1, CV_64FC3),
                             Values(0),
                             Values(ThreshOp(THRESH_BINARY),
                                    ThreshOp(THRESH_BINARY_INV), ThreshOp(THRESH_TRUNC),
