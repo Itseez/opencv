@@ -249,16 +249,15 @@ static void fastNlMeansDenoisingMulti_( const std::vector<Mat>& srcImgs, Mat& ds
     int hn = (int)h.size();
     double granularity = (double)std::max(1., (double)dst.total()/(1 << 16));
 
-    switch (srcImgs[0].type())
-    {
-        case CV_8U:
+    switch (CV_MAT_CN(srcImgs[0].type())) {
+        case 1:
             parallel_for_(cv::Range(0, srcImgs[0].rows),
-                          FastNlMeansMultiDenoisingInvoker<uchar, IT, UIT, D, int>(
+                          FastNlMeansMultiDenoisingInvoker<ST, IT, UIT, D, int>(
                               srcImgs, imgToDenoiseIndex, temporalWindowSize,
                               dst, templateWindowSize, searchWindowSize, &h[0]),
                           granularity);
             break;
-        case CV_8UC2:
+        case 2:
             if (hn == 1)
                 parallel_for_(cv::Range(0, srcImgs[0].rows),
                               FastNlMeansMultiDenoisingInvoker<Vec<ST, 2>, IT, UIT, D, int>(
@@ -272,7 +271,7 @@ static void fastNlMeansDenoisingMulti_( const std::vector<Mat>& srcImgs, Mat& ds
                                   dst, templateWindowSize, searchWindowSize, &h[0]),
                               granularity);
             break;
-        case CV_8UC3:
+        case 3:
             if (hn == 1)
                 parallel_for_(cv::Range(0, srcImgs[0].rows),
                               FastNlMeansMultiDenoisingInvoker<Vec<ST, 3>, IT, UIT, D, int>(
@@ -286,7 +285,7 @@ static void fastNlMeansDenoisingMulti_( const std::vector<Mat>& srcImgs, Mat& ds
                                   dst, templateWindowSize, searchWindowSize, &h[0]),
                               granularity);
             break;
-        case CV_8UC4:
+        case 4:
             if (hn == 1)
                 parallel_for_(cv::Range(0, srcImgs[0].rows),
                               FastNlMeansMultiDenoisingInvoker<Vec<ST, 4>, IT, UIT, D, int>(
@@ -300,9 +299,9 @@ static void fastNlMeansDenoisingMulti_( const std::vector<Mat>& srcImgs, Mat& ds
                                   dst, templateWindowSize, searchWindowSize, &h[0]),
                               granularity);
             break;
-        default:
+       default:
             CV_Error(Error::StsBadArg,
-                "Unsupported image format! Only CV_8U, CV_8UC2, CV_8UC3 and CV_8UC4 are supported");
+                     "Unsupported number of channels! Only 1, 2, 3, and 4 are supported");
     }
 }
 
