@@ -157,6 +157,10 @@ private:
 #ifdef HAVE_CANN
         backends.push_back(std::make_pair(DNN_BACKEND_CANN, DNN_TARGET_NPU));
 #endif
+
+#ifdef HAVE_TRT
+        backends.push_back(std::make_pair(DNN_BACKEND_TENSORRT, DNN_TARGET_TENSORRT));
+#endif
     }
 
     BackendsList backends;

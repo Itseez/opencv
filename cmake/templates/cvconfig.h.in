@@ -28,6 +28,9 @@
 /* Clp support */
 #cmakedefine HAVE_CLP
 
+/* TensorRT support */
+#cmakedefine HAVE_TRT
+
 /* NVIDIA CUDA Runtime API*/
 #cmakedefine HAVE_CUDA
 

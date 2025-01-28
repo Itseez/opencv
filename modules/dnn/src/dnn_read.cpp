@@ -51,6 +51,10 @@ Net readNet(const String& _model, const String& _config, const String& _framewor
             std::swap(model, config);
         return readNetFromModelOptimizer(config, model);
     }
+    if (framework == "tensorrt" && (modelExt == "onnx" || modelExt == "trt"))
+    {
+        return readNetFromTensorRT(model);
+    }
     if (framework == "onnx" || modelExt == "onnx")
     {
         return readNetFromONNX(model);

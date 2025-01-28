@@ -150,7 +150,6 @@ struct Net::Impl : public detail::NetImplBase
     std::vector<int> getUnconnectedOutLayers() const;
     std::vector<String> getUnconnectedOutLayersNames() /*const*/;
 
-
     void setInputsNames(const std::vector<String>& inputBlobNames);
     void setInputShape(const String& inputName, const MatShape& shape);
     virtual void setInput(InputArray blob, const String& name, double scalefactor, const Scalar& mean);
@@ -158,7 +157,6 @@ struct Net::Impl : public detail::NetImplBase
     void setParam(int layer, int numParam, const Mat& blob);
     std::vector<Ptr<Layer>> getLayerInputs(int layerId) const;
     std::vector<String> getLayerNames() const;
-
 
     // TODO drop?
     void getLayerTypes(std::vector<String>& layersTypes) const;
@@ -222,12 +220,12 @@ struct Net::Impl : public detail::NetImplBase
 
     void forwardToLayer(LayerData& ld, bool clearFlags = true);
 
-    Mat forward(const String& outputName);
-    AsyncArray forwardAsync(const String& outputName);
-    void forward(OutputArrayOfArrays outputBlobs, const String& outputName);
-    void forward(OutputArrayOfArrays outputBlobs,
+    virtual Mat forward(const String& outputName);
+    virtual AsyncArray forwardAsync(const String& outputName);
+    virtual void forward(OutputArrayOfArrays outputBlobs, const String& outputName);
+    virtual void forward(OutputArrayOfArrays outputBlobs,
             const std::vector<String>& outBlobNames);
-    void forward(std::vector<std::vector<Mat>>& outputBlobs,
+    virtual void forward(std::vector<std::vector<Mat>>& outputBlobs,
             const std::vector<String>& outBlobNames);
 
 

@@ -465,6 +465,9 @@ OCV_OPTION(WITH_ONNX "Include Microsoft ONNX Runtime support" OFF
 OCV_OPTION(WITH_TIMVX "Include Tim-VX support" OFF
   VISIBLE_IF TRUE
   VERIFY HAVE_TIMVX)
+OCV_OPTION(WITH_TRT "Include TensorRT support" OFF
+  VISIBLE_IF TRUE
+  VERIFY HAVE_TRT)
 # Attention when OBSENSOR_USE_ORBBEC_SDK set to off:
 #   Astra2 cameras currently only support Windows and Linux kernel versions no higher than 4.15, and higher versions of Linux kernel may have exceptions.
 OCV_OPTION(OBSENSOR_USE_ORBBEC_SDK "Use Orbbec SDK as backend to support more camera models and platforms (force to ON on MacOS)" OFF)
@@ -816,6 +819,9 @@ if(WITH_TIMVX)
 endif()
 if(WITH_CANN)
   include(cmake/OpenCVFindCANN.cmake)
+endif()
+if(WITH_TRT)
+  include(cmake/OpenCVFindTRT.cmake)
 endif()
 
 # ----------------------------------------------------------------------------
@@ -1890,6 +1896,16 @@ if(WITH_TIMVX)
     status("    Include path"  TIMVX_INCLUDE_DIR THEN "${TIMVX_INCLUDE_DIR}" ELSE "NO")
     status("    Link libraries:" TIMVX_LIBRARY THEN "${TIMVX_LIBRARY}" ELSE "NO")
     status("    VIVANTE SDK path" VIVANTE_SDK_DIR THEN "${VIVANTE_SDK_DIR}" ELSE "NO")
+  endif()
+endif()
+
+if(WITH_TRT)
+  status("")
+  status("  TensorRT:"     HAVE_TRT THEN "YES" ELSE "NO")
+  if(HAVE_TRT)
+    status("    TensorRT include:"  TRT_SDK_INC THEN "${TRT_SDK_INC}" ELSE "NO")
+    status("    TensorRT lib:" TRT_SDK_LIB THEN "${TRT_SDK_LIB}" ELSE "NO")
+    status("    CUDAToolkit_VERSION:" TRT_SDK_LIB THEN "${CUDAToolkit_VERSION}" ELSE "NO")
   endif()
 endif()
 

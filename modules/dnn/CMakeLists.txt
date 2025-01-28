@@ -35,6 +35,10 @@ if(HAVE_CANN)
   ocv_target_compile_definitions(${the_module} PRIVATE "HAVE_CANN=1")
 endif()
 
+if(HAVE_TRT)
+  ocv_target_compile_definitions(${the_module} PRIVATE "HAVE_TRT=1")
+endif()
+
 ocv_option(OPENCV_DNN_CUDA "Build with CUDA support"
     HAVE_CUDA
     AND HAVE_CUBLAS
@@ -194,6 +198,16 @@ if(NOT EMSCRIPTEN)
   endif()
 endif()
 
+# Include and Link TensorRT
+if(HAVE_TRT)
+  message(STATUS "Find TensorRT, and add it to dnn.")
+  message(STATUS "TRT_SDK_INC : ${TRT_SDK_INC}")
+  message(STATUS "TRT_SDK_LIB : ${TRT_SDK_LIB}")
+  message(STATUS "TRT_SDK_LIB_ONNX : ${TRT_SDK_LIB_ONNX}") # ONNX model parser
+  list(APPEND include_dirs ${TRT_SDK_INC})
+  list(APPEND libs ${TRT_SDK_LIB} ${TRT_SDK_LIB_ONNX} CUDA::cudart CUDA::npps CUDA::nppial CUDA::nppidei)
+endif()
+
 ocv_module_include_directories(${include_dirs})
 if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   ocv_append_source_files_cxx_compiler_options(fw_srcs "-Wno-suggest-override")  # GCC
@@ -215,7 +229,7 @@ set(dnn_plugin_srcs ${dnn_srcs} ${dnn_int_hdrs})
 ocv_list_filterout_ex(dnn_plugin_srcs
     "/src/dnn.cpp$|/src/dnn_utils.cpp$|/src/dnn_read.cpp$|/src/registry.cpp$|/src/backend.cpp$"
     # importers
-    "/src/(caffe|darknet|onnx|tensorflow|torch)/"
+    "/src/(caffe|darknet|onnx|tensorflow|torch|tensorrt)/"
     # executors
     "/src/(cuda|cuda4dnn|ocl4dnn|vkcom|webnn)/"
 )

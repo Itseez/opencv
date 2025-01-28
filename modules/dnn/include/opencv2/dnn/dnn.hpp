@@ -80,6 +80,7 @@ CV__DNN_INLINE_NS_BEGIN
         DNN_BACKEND_WEBNN,
         DNN_BACKEND_TIMVX,
         DNN_BACKEND_CANN,
+        DNN_BACKEND_TENSORRT,
 #if defined(__OPENCV_BUILD) || defined(BUILD_PLUGIN)
 #if !defined(OPENCV_BINDING_PARSER)
         DNN_BACKEND_INFERENCE_ENGINE_NGRAPH = 1000000,     // internal - use DNN_BACKEND_INFERENCE_ENGINE + setInferenceEngineBackendType()
@@ -105,6 +106,7 @@ CV__DNN_INLINE_NS_BEGIN
         DNN_TARGET_HDDL,
         DNN_TARGET_NPU,
         DNN_TARGET_CPU_FP16, // Only the ARM platform is supported. Low precision computing, accelerate model inference.
+        DNN_TARGET_TENSORRT,
     };
 
     /**
@@ -1119,6 +1121,36 @@ CV__DNN_INLINE_NS_BEGIN
      *        in failure cases.
      */
     CV_EXPORTS_W Net readNetFromONNX(const std::vector<uchar>& buffer);
+
+     /** @brief This struct contains all the configuration of TensorRT backend.
+      */
+    struct CV_EXPORTS_W_SIMPLE TrtConfig
+    {
+        CV_PROP_RW int deviceId;      //!< Running TensorRT with specific GPU
+        CV_PROP_RW bool useCache;     //!< It will speed up the ONNX model initialization. Write back the converted trt file to where the input model is located.
+        CV_PROP_RW String cachePath;   //!< Setting the path to write back the converted .trt file to specific path instead of the input file location.
+        CV_PROP_RW bool useFP16;      //!< Inference model with FP16, need hardware supports FP16, it may affect the accuracy.
+        CV_PROP_RW bool useTimeCache; //!< To speed up the ONNX -> trt converting processing, it will write the time cache file to cachePath.
+        CV_PROP_RW String inputName;            //!< Setting the input name and shape to convert dynamic shape ONNX to trt. Current only support single input.
+        CV_PROP_RW std::vector<int> inputShape;//!< Setting the specific input shape.
+
+        TrtConfig();
+
+        // create Trt config by default config.
+        TrtConfig(const TrtConfig& config);
+
+        TrtConfig& operator=(const TrtConfig& config);
+    };
+
+    /** @brief Reads a trt model directly or <a href="https://onnx.ai/">ONNX</a>.
+     *  @param trtFile path to the original .onnx file or converted .trt file.
+     *  @returns Network object that ready to do forward, throw an exception in failure cases.
+     *  @param config model runing config
+     *
+     *  @note
+     *  When the input is ONNX, it will take few mins to convert the ONNX model to trt first than to read it.
+     */
+    CV_EXPORTS_W Net readNetFromTensorRT(CV_WRAP_FILE_PATH const String &trtFile, const TrtConfig& config = TrtConfig());
 
     /** @brief Creates blob from .pb file.
      *  @param path to the .pb file with input tensor.

@@ -210,6 +210,12 @@ void Net::Impl::setPreferableBackend(Net& net, int backendId)
             CV_Error(Error::StsNotImplemented, "CANN backend is not availlable in the current OpenCV build");
 #endif
         }
+        else if (backendId == DNN_BACKEND_TENSORRT)
+        {
+            // TODO: Fully support TensorRT backend. Currently, we support the TensorRT by hacking the Net::Impl object.
+            // This requires to support TensorRT layer by layer.
+            CV_Error(Error::StsNotImplemented, "TensorRT backend can only be used with readNetFromTensorRT!");
+        }
         else
         {
             preferableBackend = backendId;
