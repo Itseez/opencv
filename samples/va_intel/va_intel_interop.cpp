@@ -200,10 +200,10 @@ static float run(const char* infile, const char* outfile1, const char* outfile2,
     VASurfaceID surface;
     VAStatus status;
     Timer t;
-
-    // initialize CL context for CL/VA interop
-    cv::va_intel::ocl::initializeContextFromVA(va::display, doInterop);
-
+    if(doInterop) {
+        // initialize CL context for CL/VA interop
+        cv::va_intel::ocl::initializeContextFromVA(va::display);
+    }
     // load input image
     cv::UMat u1 = readImage(infile);
     cv::Size size2 = u1.size();
@@ -215,7 +215,6 @@ static float run(const char* infile, const char* outfile1, const char* outfile2,
     cv::va_intel::convertFromVASurface(va::display, surface, size2, u1);
     cv::UMat u2;
     cv::blur(u1, u2, cv::Size(7, 7), cv::Point(-3, -3));
-
     // measure performance on some image processing
     writeImage(u1, outfile1, doInterop);
     t.start();

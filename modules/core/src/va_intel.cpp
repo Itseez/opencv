@@ -19,21 +19,15 @@ using namespace cv;
 
 ////////////////////////////////////////////////////////////////////////
 // CL-VA Interoperability
-
 #ifdef HAVE_OPENCL
 #  include "opencv2/core/opencl/runtime/opencl_core.hpp"
 #  include "opencv2/core.hpp"
 #  include "opencv2/core/ocl.hpp"
 #  include "opencl_kernels_core.hpp"
+#  ifdef HAVE_VA_INTEL
+#    include "opencv2/core/detail/va_intel_interop.hpp"
+#  endif
 #endif // HAVE_OPENCL
-
-#ifdef HAVE_VA_INTEL
-#ifdef HAVE_VA_INTEL_OLD_HEADER
-#  include <CL/va_ext.h>
-#else
-#  include <CL/cl_va_api_media_sharing_intel.h>
-#endif
-#endif
 
 #ifdef HAVE_VA
 #ifndef OPENCV_LIBVA_LINK
@@ -46,141 +40,109 @@ static void init_libva() { /* nothing */ }
 using namespace cv::detail;
 #endif
 
-namespace cv { namespace va_intel {
+namespace cv { namespace va_intel { namespace ocl {
 
-#ifdef HAVE_VA_INTEL
-
-class VAAPIInterop : public ocl::Context::UserContext
+Context& initializeContextFromVA(VADisplay display)
 {
-public:
-    VAAPIInterop(cl_platform_id platform) {
-        clCreateFromVA_APIMediaSurfaceINTEL       = (clCreateFromVA_APIMediaSurfaceINTEL_fn)
-                clGetExtensionFunctionAddressForPlatform(platform, "clCreateFromVA_APIMediaSurfaceINTEL");
-        clEnqueueAcquireVA_APIMediaSurfacesINTEL  = (clEnqueueAcquireVA_APIMediaSurfacesINTEL_fn)
-                clGetExtensionFunctionAddressForPlatform(platform, "clEnqueueAcquireVA_APIMediaSurfacesINTEL");
-        clEnqueueReleaseVA_APIMediaSurfacesINTEL  = (clEnqueueReleaseVA_APIMediaSurfacesINTEL_fn)
-                clGetExtensionFunctionAddressForPlatform(platform, "clEnqueueReleaseVA_APIMediaSurfacesINTEL");
-        if (!clCreateFromVA_APIMediaSurfaceINTEL ||
-            !clEnqueueAcquireVA_APIMediaSurfacesINTEL ||
-            !clEnqueueReleaseVA_APIMediaSurfacesINTEL) {
-            CV_Error(cv::Error::OpenCLInitError, "OpenCL: Can't get extension function for VA-API interop");
-        }
-    }
-    virtual ~VAAPIInterop() {
-    }
-    clCreateFromVA_APIMediaSurfaceINTEL_fn       clCreateFromVA_APIMediaSurfaceINTEL;
-    clEnqueueAcquireVA_APIMediaSurfacesINTEL_fn  clEnqueueAcquireVA_APIMediaSurfacesINTEL;
-    clEnqueueReleaseVA_APIMediaSurfacesINTEL_fn  clEnqueueReleaseVA_APIMediaSurfacesINTEL;
-};
-
-#endif // HAVE_VA_INTEL
-
-namespace ocl {
-
-Context& initializeContextFromVA(VADisplay display, bool tryInterop)
-{
-    CV_UNUSED(display); CV_UNUSED(tryInterop);
+    CV_UNUSED(display);
 #if !defined(HAVE_VA)
     NO_VA_SUPPORT_ERROR;
 #else  // !HAVE_VA
 
 #   ifdef HAVE_VA_INTEL
-    if (tryInterop)
+    cl_uint numPlatforms;
+    cl_int status = clGetPlatformIDs(0, NULL, &numPlatforms);
+    if (status != CL_SUCCESS)
+        CV_Error(cv::Error::OpenCLInitError, "OpenCL: Can't get number of platforms");
+    if (numPlatforms == 0)
+        CV_Error(cv::Error::OpenCLInitError, "OpenCL: No available platforms");
+
+    std::vector<cl_platform_id> platforms(numPlatforms);
+    status = clGetPlatformIDs(numPlatforms, &platforms[0], NULL);
+    if (status != CL_SUCCESS)
+        CV_Error(cv::Error::OpenCLInitError, "OpenCL: Can't get platform Id list");
+
+    // For CL-VA interop, we must find platform/device with "cl_intel_va_api_media_sharing" extension.
+    // With standard initialization procedure, we should examine platform extension string for that.
+    // But in practice, the platform ext string doesn't contain it, while device ext string does.
+    // Follow Intel procedure (see tutorial), we should obtain device IDs by extension call.
+    // Note that we must obtain function pointers using specific platform ID, and can't provide pointers in advance.
+    // So, we iterate and select the first platform, for which we got non-NULL pointers, device, and CL context.
+
+    int found = -1;
+    cl_context context = 0;
+    cl_device_id device = 0;
+
+    for (int i = 0; i < (int)numPlatforms; ++i)
     {
-        cl_uint numPlatforms;
-        cl_int status = clGetPlatformIDs(0, NULL, &numPlatforms);
-        if (status != CL_SUCCESS)
-            CV_Error(cv::Error::OpenCLInitError, "OpenCL: Can't get number of platforms");
-        if (numPlatforms == 0)
-            CV_Error(cv::Error::OpenCLInitError, "OpenCL: No available platforms");
-
-        std::vector<cl_platform_id> platforms(numPlatforms);
-        status = clGetPlatformIDs(numPlatforms, &platforms[0], NULL);
-        if (status != CL_SUCCESS)
-            CV_Error(cv::Error::OpenCLInitError, "OpenCL: Can't get platform Id list");
-
-        // For CL-VA interop, we must find platform/device with "cl_intel_va_api_media_sharing" extension.
-        // With standard initialization procedure, we should examine platform extension string for that.
-        // But in practice, the platform ext string doesn't contain it, while device ext string does.
-        // Follow Intel procedure (see tutorial), we should obtain device IDs by extension call.
-        // Note that we must obtain function pointers using specific platform ID, and can't provide pointers in advance.
-        // So, we iterate and select the first platform, for which we got non-NULL pointers, device, and CL context.
-
-        int found = -1;
-        cl_context context = 0;
-        cl_device_id device = 0;
-
-        for (int i = 0; i < (int)numPlatforms; ++i)
+        // Get extension function pointers
+        clGetDeviceIDsFromVA_APIMediaAdapterINTEL_fn clGetDeviceIDsFromVA_APIMediaAdapterINTEL;
+        clGetDeviceIDsFromVA_APIMediaAdapterINTEL = (clGetDeviceIDsFromVA_APIMediaAdapterINTEL_fn)
+            clGetExtensionFunctionAddressForPlatform(platforms[i], "clGetDeviceIDsFromVA_APIMediaAdapterINTEL");
+        if ((void*)clGetDeviceIDsFromVA_APIMediaAdapterINTEL == NULL)
         {
-            // Get extension function pointers
-            clGetDeviceIDsFromVA_APIMediaAdapterINTEL_fn clGetDeviceIDsFromVA_APIMediaAdapterINTEL;
-            clGetDeviceIDsFromVA_APIMediaAdapterINTEL = (clGetDeviceIDsFromVA_APIMediaAdapterINTEL_fn)
-                clGetExtensionFunctionAddressForPlatform(platforms[i], "clGetDeviceIDsFromVA_APIMediaAdapterINTEL");
-            if ((void*)clGetDeviceIDsFromVA_APIMediaAdapterINTEL == NULL)
-            {
-                continue;
-            }
-
-            // Query device list
-
-            cl_uint numDevices = 0;
-
-            status = clGetDeviceIDsFromVA_APIMediaAdapterINTEL(platforms[i], CL_VA_API_DISPLAY_INTEL, display,
-                                                               CL_PREFERRED_DEVICES_FOR_VA_API_INTEL, 0, NULL, &numDevices);
-            if ((status != CL_SUCCESS) || !(numDevices > 0))
-                continue;
-            numDevices = 1; // OpenCV expects only 1 device
-            status = clGetDeviceIDsFromVA_APIMediaAdapterINTEL(platforms[i], CL_VA_API_DISPLAY_INTEL, display,
-                                                               CL_PREFERRED_DEVICES_FOR_VA_API_INTEL, numDevices, &device, NULL);
-            if (status != CL_SUCCESS)
-                continue;
-
-            // Creating CL-VA media sharing OpenCL context
-
-            cl_context_properties props[] = {
-                CL_CONTEXT_VA_API_DISPLAY_INTEL, (cl_context_properties) display,
-                CL_CONTEXT_INTEROP_USER_SYNC, CL_FALSE, // no explicit sync required
-                0
-            };
-
-            context = clCreateContext(props, numDevices, &device, NULL, NULL, &status);
-            if (status != CL_SUCCESS)
-            {
-                clReleaseDevice(device);
-            }
-            else
-            {
-                found = i;
-                break;
-            }
+            continue;
         }
 
-        if (found >= 0)
-        {
-            cl_platform_id platform = platforms[found];
-            std::string platformName = PlatformInfo(&platform).name();
+        // Query device list
 
-            OpenCLExecutionContext clExecCtx;
-            try
-            {
-                clExecCtx = OpenCLExecutionContext::create(platformName, platform, context, device);
-                clExecCtx.getContext().setUserContext(std::make_shared<VAAPIInterop>(platform));
-            }
-            catch (...)
-            {
-                clReleaseDevice(device);
-                clReleaseContext(context);
-                throw;
-            }
-            clExecCtx.bind();
-            return const_cast<Context&>(clExecCtx.getContext());
+        cl_uint numDevices = 0;
+
+        status = clGetDeviceIDsFromVA_APIMediaAdapterINTEL(platforms[i], CL_VA_API_DISPLAY_INTEL, display,
+                                                           CL_PREFERRED_DEVICES_FOR_VA_API_INTEL, 0, NULL, &numDevices);
+        if ((status != CL_SUCCESS) || !(numDevices > 0))
+            continue;
+        numDevices = 1; // OpenCV expects only 1 device
+        status = clGetDeviceIDsFromVA_APIMediaAdapterINTEL(platforms[i], CL_VA_API_DISPLAY_INTEL, display,
+                                                           CL_PREFERRED_DEVICES_FOR_VA_API_INTEL, numDevices, &device, NULL);
+        if (status != CL_SUCCESS)
+            continue;
+
+        // Creating CL-VA media sharing OpenCL context
+
+        cl_context_properties props[] = {
+            CL_CONTEXT_VA_API_DISPLAY_INTEL, (cl_context_properties) display,
+            CL_CONTEXT_INTEROP_USER_SYNC, CL_FALSE, // no explicit sync required
+            0
+        };
+
+        context = clCreateContext(props, numDevices, &device, NULL, NULL, &status);
+        if (status != CL_SUCCESS)
+        {
+            clReleaseDevice(device);
         }
+        else
+        {
+            found = i;
+            break;
+        }
+    }
+
+    if (found >= 0)
+    {
+        cl_platform_id platform = platforms[found];
+        std::string platformName = PlatformInfo(&platform).name();
+
+        OpenCLExecutionContext clExecCtx;
+        try
+        {
+            clExecCtx = OpenCLExecutionContext::create(platformName, platform, context, device);
+            clExecCtx.getContext().setUserContext(std::make_shared<VAAPIInterop>(platform));
+        }
+        catch (...)
+        {
+            clReleaseDevice(device);
+            clReleaseContext(context);
+            throw;
+        }
+        clExecCtx.bind();
+        return const_cast<Context&>(clExecCtx.getContext());
+    } else {
+        CV_Error(cv::Error::OpenCLInitError, "OpenCL: Can't create context for VA-interop");
     }
 # endif // HAVE_VA_INTEL
-    {
-        Context& ctx = Context::getDefault(true);
-        return ctx;
-    }
+    Context& ctx = Context::getDefault(true);
+    return ctx;
 #endif  // !HAVE_VA
 }
 
@@ -536,18 +498,16 @@ void convertToVASurface(VADisplay display, InputArray src, VASurfaceID surface, 
 
 #ifdef HAVE_VA_INTEL
     ocl::OpenCLExecutionContext& ocl_context = ocl::OpenCLExecutionContext::getCurrent();
-    VAAPIInterop* interop = ocl_context.getContext().getUserContext<VAAPIInterop>().get();
-    CV_LOG_IF_DEBUG(NULL, !interop,
-        "OpenCL/VA_INTEL: Can't interop with current OpenCL context - missing VAAPIInterop API. "
-        "OpenCL context should be created through initializeContextFromVA()");
     void* context_display = ocl_context.getContext().getOpenCLContextProperty(CL_CONTEXT_VA_API_DISPLAY_INTEL);
-    CV_LOG_IF_INFO(NULL, interop && !context_display,
-        "OpenCL/VA_INTEL: Can't interop with current OpenCL context - missing VA display, context re-creation is required");
-    bool isValidContextDisplay = (display == context_display);
-    CV_LOG_IF_INFO(NULL, interop && context_display && !isValidContextDisplay,
-        "OpenCL/VA_INTEL: Can't interop with current OpenCL context - VA display mismatch: " << context_display << "(context) vs " << (void*)display << "(surface)");
-    if (isValidContextDisplay && interop)
-    {
+    VAAPIInterop* interop = ocl_context.getContext().getUserContext<VAAPIInterop>().get();
+    if(!context_display || context_display != display)
+        CV_Error_(cv::Error::StsBadArg, ("Can't interop with current OpenCL context - VA display mismatch: %p (context) vs %p (surface).\ndid you call initializeContextFromVA before using VideoCapture/VideoWriter?", context_display, (void*)display));
+
+    if(!display)
+        CV_Error(cv::Error::StsBadArg,
+                "Invalid VADisplay passed to convertFromVASurface");
+
+    if(interop) {
         UMat u = src.getUMat();
 
         // TODO Add support for roi
@@ -589,10 +549,14 @@ void convertToVASurface(VADisplay display, InputArray src, VASurfaceID surface, 
         status = clReleaseMemObject(clImageUV);
         if (status != CL_SUCCESS)
             CV_Error(cv::Error::OpenCLApiCallError, "OpenCL: clReleaseMem failed (UV plane)");
-    }
-    else
+        return;
+    } else
 # endif // HAVE_VA_INTEL
     {
+        CV_LOG_DEBUG(NULL,
+                "OpenCL/VA_INTEL: Can't interop with current OpenCL context - missing VAAPIInterop API. "
+                "OpenCL context should be created through initializeContextFromVA()");
+
         init_libva();
         Mat m = src.getMat();
 
@@ -682,9 +646,16 @@ void convertFromVASurface(VADisplay display, VASurfaceID surface, Size size, Out
 
 #ifdef HAVE_VA_INTEL
     ocl::OpenCLExecutionContext& ocl_context = ocl::OpenCLExecutionContext::getCurrent();
+    void* context_display = ocl_context.getContext().getOpenCLContextProperty(CL_CONTEXT_VA_API_DISPLAY_INTEL);
     VAAPIInterop* interop = ocl_context.getContext().getUserContext<VAAPIInterop>().get();
-    if (display == ocl_context.getContext().getOpenCLContextProperty(CL_CONTEXT_VA_API_DISPLAY_INTEL) && interop)
-    {
+    if(!context_display || context_display != display)
+        CV_Error_(cv::Error::StsBadArg, ("Can't interop with current OpenCL context - VA display mismatch: %p (context) vs %p (surface).\ndid you call initializeContextFromVA before using VideoCapture/VideoWriter?", context_display, (void*)display));
+
+    if(!display)
+        CV_Error(cv::Error::StsBadArg,
+                "Invalid VADisplay passed to convertFromVASurface");
+
+    if(interop) {
         UMat u = dst.getUMat();
 
         // TODO Add support for roi
@@ -726,10 +697,14 @@ void convertFromVASurface(VADisplay display, VASurfaceID surface, Size size, Out
         status = clReleaseMemObject(clImageUV);
         if (status != CL_SUCCESS)
             CV_Error(cv::Error::OpenCLApiCallError, "OpenCL: clReleaseMem failed (UV plane)");
-    }
-    else
+        return;
+    } else
 # endif // HAVE_VA_INTEL
     {
+        CV_LOG_DEBUG(NULL,
+                "OpenCL/VA_INTEL: Can't interop with current OpenCL context - missing VAAPIInterop API. "
+                "OpenCL context should be created through initializeContextFromVA()");
+
         init_libva();
         Mat m = dst.getMat();
 
