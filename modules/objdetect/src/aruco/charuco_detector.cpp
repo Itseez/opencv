@@ -335,7 +335,7 @@ struct CharucoDetector::CharucoDetectorImpl {
         InputOutputArrayOfArrays _markerCorners = markerCorners.needed() ? markerCorners : tmpMarkerCorners;
         InputOutputArray _markerIds = markerIds.needed() ? markerIds : tmpMarkerIds;
         detectBoard(image, charucoCorners, charucoIds, _markerCorners, _markerIds);
-        if (checkBoard(_markerCorners, _markerIds, charucoCorners, charucoIds) == false) {
+        if (charucoParameters.checkMarkers && checkBoard(_markerCorners, _markerIds, charucoCorners, charucoIds) == false) {
             CV_LOG_DEBUG(NULL, "ChArUco board is built incorrectly");
             charucoCorners.release();
             charucoIds.release();

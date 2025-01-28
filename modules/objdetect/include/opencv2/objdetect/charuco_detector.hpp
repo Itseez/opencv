@@ -16,6 +16,7 @@ struct CV_EXPORTS_W_SIMPLE CharucoParameters {
     CV_WRAP CharucoParameters() {
         minMarkers = 2;
         tryRefineMarkers = false;
+        checkMarkers = true;
     }
     /// cameraMatrix optional 3x3 floating-point camera matrix
     CV_PROP_RW Mat cameraMatrix;
@@ -28,6 +29,9 @@ struct CV_EXPORTS_W_SIMPLE CharucoParameters {
 
     /// try to use refine board, default false
     CV_PROP_RW bool tryRefineMarkers;
+
+    // run check to verify that markers belong to the same board, default true
+    CV_PROP_RW bool checkMarkers;
 };
 
 class CV_EXPORTS_W CharucoDetector : public Algorithm {
