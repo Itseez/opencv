@@ -1036,7 +1036,11 @@ void ORB_Impl::detectAndCompute( InputArray _image, InputArray _mask,
     bool useOCL = false;
 #endif
 
-    Mat image = _image.getMat(), mask = _mask.getMat();
+    Mat image = _image.getMat(), mask;
+    if (!_mask.empty())
+    {
+        threshold(_mask, mask, 0, 255, THRESH_BINARY);
+    }
     if( image.type() != CV_8UC1 )
         cvtColor(_image, image, COLOR_BGR2GRAY);
 
@@ -1129,15 +1133,12 @@ void ORB_Impl::detectAndCompute( InputArray _image, InputArray _mask,
             if( !mask.empty() )
             {
                 resize(prevMask, currMask, sz, 0, 0, INTER_LINEAR_EXACT);
-                if( level > firstLevel )
-                    threshold(currMask, currMask, 254, 0, THRESH_TOZERO);
+                copyMakeBorder(currMask, extMask, border, border, border, border,
+                               BORDER_CONSTANT + BORDER_ISOLATED);
             }
 
             copyMakeBorder(currImg, extImg, border, border, border, border,
-                           BORDER_REFLECT_101+BORDER_ISOLATED);
-            if (!mask.empty())
-                copyMakeBorder(currMask, extMask, border, border, border, border,
-                               BORDER_CONSTANT+BORDER_ISOLATED);
+                           BORDER_REFLECT_101 + BORDER_ISOLATED);
         }
         else
         {
