@@ -126,9 +126,10 @@ const uint32_t id_acTL = 0x4C546361; // Animation control chunk
 const uint32_t id_fcTL = 0x4C546366; // Frame control chunk
 const uint32_t id_IDAT = 0x54414449; // first frame and/or default image
 const uint32_t id_fdAT = 0x54416466; // Frame data chunk
-const uint32_t id_PLTE = 0x45544C50;
-const uint32_t id_bKGD = 0x44474B62;
-const uint32_t id_tRNS = 0x534E5274;
+const uint32_t id_PLTE = 0x45544C50; // The PLTE chunk contains a color palette for indexed-color images
+const uint32_t id_bKGD = 0x44474B62; // The bKGD chunk specifies a default background color for the image
+const uint32_t id_tRNS = 0x534E5274; // The tRNS chunk provides transparency information
+const uint32_t id_tEXt = 0x74584574; // The tEXt chunk stores metadata as text in key-value pairs
 const uint32_t id_IEND = 0x444E4549; // end/footer chunk
 
 APNGFrame::APNGFrame()
@@ -726,7 +727,7 @@ uint32_t PngDecoder::read_chunk(Chunk& chunk)
         if (size != 8 + 1 + 4 && size != 8 + 2 + 4 && size != 8 + 6 + 4)
             return 0;
     } else if (id != id_fdAT && id != id_IDAT && id != id_IEND && id != id_PLTE && id != id_tRNS) {
-        if (size > PNG_USER_CHUNK_MALLOC_MAX)
+        if (size > PNG_USER_CHUNK_MALLOC_MAX && id != id_tEXt)
         {
             CV_LOG_WARNING(NULL, "user chunk data is too large");
             return 0;
