@@ -13,6 +13,7 @@
 
 #include <cstdint>
 #include <deque>
+#include <memory>
 
 namespace vas {
 namespace ot {
@@ -45,6 +46,7 @@ class Tracklet {
     virtual void RenewTrajectory(const cv::Rect2f &bounding_box);
 
     virtual std::deque<cv::Mat> *GetRgbFeatures();
+    void AddRgbFeature(const cv::Mat &feature);
     virtual std::string Serialize() const; // Returns key:value with comma separated format
 
   public:
@@ -63,6 +65,9 @@ class Tracklet {
     std::deque<cv::Rect2f> trajectory_filtered;
     cv::Rect2f predicted;                      // Result from Kalman prediction. It is for debugging (OTAV)
     mutable std::vector<std::string> otav_msg; // Messages for OTAV
+
+  private:
+    std::shared_ptr<std::deque<cv::Mat>> rgb_features_;
 };
 
 class ZeroTermImagelessTracklet : public Tracklet {

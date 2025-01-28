@@ -141,6 +141,12 @@ ObjectsAssociator::ComputeRgbDistance(const std::vector<Detection> &detections,
             if (tracking_per_class_ && (detections[d].class_label != tracklets[t]->label))
                 continue;
 
+             // Check if RGB features are available
+        auto t_rgb_features = tracklets[t]->GetRgbFeatures();
+        if (!t_rgb_features || t_rgb_features->empty()) {
+            continue; // Skip if no RGB features are available
+        }
+
             // Find best match in rgb feature history
             float min_dist = 1000.0f;
             for (const auto &t_rgb_feature : *(tracklets[t]->GetRgbFeatures())) {

@@ -7,13 +7,15 @@
 #include "tracklet.hpp"
 
 #include <sstream>
+#include <memory>
 
 namespace vas {
 namespace ot {
 
 Tracklet::Tracklet()
     : id(0), label(-1), association_idx(kNoMatchDetection), status(ST_DEAD), age(0), confidence(0.f),
-      occlusion_ratio(0.f), association_delta_t(0.f), association_fail_count(0) {
+      occlusion_ratio(0.f), association_delta_t(0.f), association_fail_count(0),
+      rgb_features_(std::make_shared<std::deque<cv::Mat>>()) {
 }
 
 Tracklet::~Tracklet() {
@@ -45,12 +47,13 @@ void Tracklet::RenewTrajectory(const cv::Rect2f &bounding_box) {
     trajectory_filtered.push_back(bounding_box);
 }
 
-#define DEFINE_STRING_VAR(var_name, value)                                                                             \
-    std::stringstream __##var_name;                                                                                    \
-    __##var_name << value;                                                                                             \
-    std::string var_name = __##var_name.str();
+std::deque<cv::Mat> *Tracklet::GetRgbFeatures() {
+    return rgb_features_.get(); // Return the raw pointer from the shared_ptr
+}
 
-#define ROUND_F(value, scale) (round((value)*scale) / scale)
+void Tracklet::AddRgbFeature(const cv::Mat &feature) {
+    rgb_features_->push_back(feature);
+}
 
 std::string Tracklet::Serialize() const {
 #ifdef DUMP_OTAV
@@ -95,10 +98,6 @@ std::string Tracklet::Serialize() const {
 #else
     return "";
 #endif
-}
-
-std::deque<cv::Mat> *Tracklet::GetRgbFeatures() {
-    return nullptr;
 }
 
 ZeroTermImagelessTracklet::ZeroTermImagelessTracklet() : Tracklet(), birth_count(1) {
