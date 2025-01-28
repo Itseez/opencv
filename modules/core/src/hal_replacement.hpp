@@ -911,8 +911,26 @@ inline int hal_ni_gemm64fc(const double* src1, size_t src1_step, const double* s
 inline int hal_ni_minMaxIdx(const uchar* src_data, size_t src_step, int width, int height, int depth, double* minVal, double* maxVal,
                             int* minIdx, int* maxIdx, uchar* mask) { return CV_HAL_ERROR_NOT_IMPLEMENTED; }
 
+/**
+   @brief Finds the global minimum and maximum in an array.
+   @param src_data Source image
+   @param src_step Source image
+   @param width Source image dimensions
+   @param height Source image dimensions
+   @param depth Depth of source image
+   @param minVal Pointer to the returned global minimum and maximum in an array.
+   @param maxVal Pointer to the returned global minimum and maximum in an array.
+   @param minIdx Pointer to the returned minimum and maximum location.
+   @param maxIdx Pointer to the returned minimum and maximum location.
+   @param mask Specified array region.
+   @param mask_step Mask array step.
+*/
+inline int hal_ni_minMaxIdxMaskStep(const uchar* src_data, size_t src_step, int width, int height, int depth, double* minVal, double* maxVal,
+                                    int* minIdx, int* maxIdx, uchar* mask, size_t mask_step) { return CV_HAL_ERROR_NOT_IMPLEMENTED; }
+
 //! @cond IGNORED
 #define cv_hal_minMaxIdx hal_ni_minMaxIdx
+#define cv_hal_minMaxIdxMaskStep hal_ni_minMaxIdxMaskStep
 //! @endcond
 
 /**

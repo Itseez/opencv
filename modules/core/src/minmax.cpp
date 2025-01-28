@@ -1514,10 +1514,19 @@ void cv::minMaxIdx(InputArray _src, double* minVal,
 
     if (src.dims <= 2)
     {
-        CALL_HAL(minMaxIdx, cv_hal_minMaxIdx, src.data, src.step, src.cols*cn, src.rows,
-                 src.depth(), minVal, maxVal, minIdx, maxIdx, mask.data);
+        if ((size_t)src.step == (size_t)mask.step)
+        {
+            CALL_HAL(minMaxIdx, cv_hal_minMaxIdx, src.data, src.step, src.cols*cn, src.rows,
+                     src.depth(), minVal, maxVal, minIdx, maxIdx, mask.data);
+        }
+        else
+        {
+            CALL_HAL(minMaxIdxMaskStep, cv_hal_minMaxIdxMaskStep, src.data, src.step, src.cols*cn, src.rows,
+                     src.depth(), minVal, maxVal, minIdx, maxIdx, mask.data, mask.step);
+        }
+
     }
-    else if (src.isContinuous())
+    else if (src.isContinuous() && mask.isContinuous())
     {
         int res = cv_hal_minMaxIdx(src.data, 0, (int)src.total()*cn, 1, src.depth(),
                                    minVal, maxVal, minIdx, maxIdx, mask.data);
