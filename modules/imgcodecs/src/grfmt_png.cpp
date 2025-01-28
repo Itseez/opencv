@@ -1416,6 +1416,8 @@ void PngEncoder::deflateRectFin(unsigned char* zbuf, uint32_t* zsize, int bpp, i
 
 bool PngEncoder::writeanimation(const Animation& animation, const std::vector<int>& params)
 {
+    if (animation.frames.size() == 1)
+       return write(animation.frames[0], params);
     int compression_level = 6;
     int compression_strategy = IMWRITE_PNG_STRATEGY_RLE; // Default strategy
     bool isBilevel = false;

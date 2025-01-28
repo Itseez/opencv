@@ -58,6 +58,19 @@ PERF_TEST(PNG, encode)
     SANITY_CHECK_NOTHING();
 }
 
+PERF_TEST(PNG, encodemulti)
+{
+    String filename = getDataPath("perf/2560x1600.png");
+    Mat src = imread(filename);
+    vector<Mat> vec;
+    vec.push_back(src);
+    vec.push_back(src.clone());
+
+    vector<uchar> buf;
+    TEST_CYCLE() imencode(".png", vec, buf);
+
+    SANITY_CHECK_NOTHING();
+}
 #endif // HAVE_PNG
 
 } // namespace
